@@ -1,0 +1,21 @@
+{
+  "web": {
+    "provider": "perplexity",
+    "model": ""
+  },
+  "plan": {
+    "fileProvider": "openai",
+    "fileModel": "o3-mini",
+    "thinkingProvider": "gemini",
+    "thinkingModel": "gemini-2.0-flash"
+  },
+  "repo": {
+    "provider": "gemini",
+    "model": "gemini-2.0-flash"
+  },
+  "doc": {
+    "provider": "perplexity",
+    "model": ""
+  },
+  "ide": "cursor"
+}

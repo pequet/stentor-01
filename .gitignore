@@ -1,0 +1,68 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.Spotlight-V100
+.Trashes
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Environments
+.env*
+.venv
+env/
+venv/
+ENV/
+VENV/
+
+# IDE specific (including symlinks)
+.cursor
+.vscode
+.cursor/
+.vscode/
+
+# Build artifacts
+dist/
+build/
+*.o
+*.a
+*.so
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*~
+*.swp
+*.swo
+
+# Exclude inbox and archive directories
+**/inbox/**
+**/archive/**
+**/archives/**
+**/archived/**
+**/trash/**
+
+# repomix temp files
+.repomix*
+
+# Development context (including symlinks)
+.specstory
+.specstory/
+
+# Memory Bank (allowed)
+# memory-bank/
+
