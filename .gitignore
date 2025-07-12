@@ -49,11 +49,14 @@ logs/
 *.swp
 *.swo
 
-# Exclude inbox and archive directories
+# Exclude inbox and archive directories (including symlinks)
+**/inbox
 **/inbox/**
+**/archive
 **/archive/**
+**/archives
 **/archives/**
-**/archived/**
+**/trash
 **/trash/**
 
 # repomix temp files
