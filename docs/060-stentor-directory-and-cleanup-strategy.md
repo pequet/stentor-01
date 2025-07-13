@@ -1,12 +1,4 @@
----
-type: guide
-domain: system-state
-subject: Stentor-01
-status: draft
-summary: "Details local and droplet directory structures, file lifecycles, cleanup strategies, and monitoring considerations for the Stentor project."
----
-
-# Stentor: Directory Structure, File Lifecycle, and Cleanup Strategy
+# 060: Stentor: Directory Structure, File Lifecycle, and Cleanup Strategy
 
 **Last Updated:** 2025-06-01 16:03:37
 

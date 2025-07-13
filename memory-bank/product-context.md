@@ -1,3 +1,10 @@
+---
+type: overview
+domain: system-state
+subject: Stentor-01
+status: active
+summary: Outlines the problem of complex server setup for audio transcription and defines the solution: a well-documented, replicable DigitalOcean droplet for Whisper.cpp and Vibe Tools.
+---
 # Product Context: Stentor
 
 ## Problem

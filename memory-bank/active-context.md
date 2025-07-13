@@ -3,7 +3,7 @@ type: overview
 domain: system-state
 subject: Stentor-01
 status: active
-summary: Defines the CURRENT work focus, most recent changes, immediate NEXT steps, and any specific AI instructions for the current session.
+summary: Captures the immediate work focus on analyzing endurance test logs, tracks final documentation polish, and outlines the steps for the initial public release.
 ---
 # Active Context: Stentor Project
 

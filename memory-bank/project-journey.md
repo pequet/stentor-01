@@ -3,7 +3,7 @@ type: overview
 domain: system-state
 subject: Stentor-01
 status: active
-summary: Tracks overarching project milestones, active quests, and serves as a motivational anchor for Stentor-01.
+summary: Tracks the high-level project journey through standardized milestones and specific quests, anchoring the project to its core motivation of creating a robust, automated audio processing system.
 ---
 
 # Project Journey: Stentor-01

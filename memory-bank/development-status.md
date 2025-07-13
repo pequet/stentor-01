@@ -3,7 +3,7 @@ type: overview
 domain: system-state
 subject: Stentor-01
 status: active
-summary: A high-level summary of the Stentor-01 project's current development status, challenges, and next steps.
+summary: Provides a high-level overview of the project's status, indicating it is in the final validation phase, with the primary next step being the analysis of endurance test results before release.
 ---
 # Development Status
 

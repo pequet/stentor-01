@@ -1,3 +1,10 @@
+---
+type: overview
+domain: system-state
+subject: Stentor-01
+status: active
+summary: Documents the recurring technical and workflow patterns for the Stentor project, including environment setup, software components, security standards, and deployment strategies.
+---
 # System Patterns: Stentor Droplet
 
 ## 1. Compute Environment

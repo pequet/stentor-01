@@ -1,4 +1,4 @@
-# Solving Premature Script Termination from SSH Disconnects
+# 070: Solving Premature Script Termination from SSH Disconnects
 
 ## 1. Problem
 
