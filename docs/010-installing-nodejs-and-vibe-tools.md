@@ -60,12 +60,12 @@ vibe-tools --version
 ```
 
 6.  **Configure API Keys for `vibe-tools`:**
-    `vibe-tools` requires API keys to authenticate with AI service providers (e.g., OpenAI, Google Gemini). These keys are stored securely in a `stentor.conf` file within the `~/.vibe-tools/` directory.
+    `vibe-tools` requires API keys to authenticate with AI service providers (e.g., OpenAI, Google Gemini). These keys are stored securely in a `.env` file within the `~/.vibe-tools/` directory.
 
 ```bash
 # Create the configuration directory if it doesn't already exist
 mkdir -p ~/.vibe-tools
-# Create or edit the stentor.conf file using a text editor like nano
+# Create or edit the .env file using a text editor like nano
 nano ~/.vibe-tools/.env
 ```
 

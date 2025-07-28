@@ -19,7 +19,7 @@ package-lock.json
 yarn.lock
 
 # Environments
-stentor.conf*
+.env
 .venv
 env/
 venv/

@@ -198,7 +198,7 @@ summary: A reverse-chronological log detailing session activities, technical dec
 
 **Key Files Created/Modified**:
 - `scripts/client-side/download_to_stentor.sh` - Main download script
-- `scripts/client-side/stentor_clientstentor.conf.example` - Configuration template
+- `scripts/client-side/stentor.conf.example` - Configuration template
 - Updated `.gitignore` to exclude sensitive `stentor.conf` files
 
 **Configuration Management**:
@@ -273,7 +273,7 @@ summary: A reverse-chronological log detailing session activities, technical dec
 **Key Files Created**:
 - `scripts/client-side/mount_droplet_yt.sh` - SSHFS mounting with comprehensive error handling
 - `scripts/client-side/unmount_droplet_yt.sh` - Safe unmounting with process checking
-- `scripts/client-side/stentor_clientstentor.conf.example` - Configuration template
+- `scripts/client-side/stentor.conf.example` - Configuration template
 
 **Features Implemented**:
 - Automatic dependency checking (sshfs, macFUSE on macOS)
