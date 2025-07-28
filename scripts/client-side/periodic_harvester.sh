@@ -49,10 +49,10 @@ set -o pipefail
 source "$(dirname "$0")/../utils/messaging_utils.sh"
 
 # * Global Variables and Configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)" # Added for clarity and .env path
-PROJECT_ENV_FILE="$SCRIPT_DIR/.env" # For loading LOCAL_MOUNT_POINT
-HOME_STENTOR_DIR="$HOME/.stentor" # Used for .env and lock files
-HOME_ENV_FILE="$HOME_STENTOR_DIR/.env" # For loading LOCAL_MOUNT_POINT
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)" # Added for clarity and stentor.conf path
+PROJECT_ENV_FILE="$SCRIPT_DIR/stentor.conf" # For loading LOCAL_MOUNT_POINT
+HOME_STENTOR_DIR="$HOME/.stentor" # Used for stentor.conf and lock files
+HOME_ENV_FILE="$HOME_STENTOR_DIR/stentor.conf" # For loading LOCAL_MOUNT_POINT
 
 LOCK_FILE="$HOME/.stentor/periodic_harvester.lock"
 LOCK_TIMEOUT=300  # 300 seconds timeout
@@ -61,7 +61,7 @@ DOWNLOAD_SCRIPT="$(dirname "$0")/download_to_stentor.sh"
 LOG_FILE="$HOME/.stentor/logs/periodic_harvester.log"
 LOCK_ACQUIRED_BY_THIS_PROCESS=false # Flag to track if this instance acquired the lock
 
-LOCAL_MOUNT_POINT="" # Will be loaded from .env
+LOCAL_MOUNT_POINT="" # Will be loaded from stentor.conf
 HARVESTER_PERFORMED_MOUNT=false # To track if this script mounted
 
 MOUNT_SCRIPT="$SCRIPT_DIR/mount_droplet_yt.sh" # Assumes it's in the same dir
@@ -165,28 +165,28 @@ release_lock() {
 
 # * Mount Management Functions
 load_env_config() {
-    log_info "Attempting to load .env configuration for mount point..."
+    log_info "Attempting to load stentor.conf configuration for mount point..."
     CONFIG_SOURCED=false
     if [ -f "$PROJECT_ENV_FILE" ]; then
-        log_info "Found project .env file: $PROJECT_ENV_FILE. Sourcing..."
-        # shellcheck source=./.env
+        log_info "Found project stentor.conf file: $PROJECT_ENV_FILE. Sourcing..."
+        # shellcheck source=./stentor.conf
         source "$PROJECT_ENV_FILE"
         CONFIG_SOURCED=true
         LOCAL_MOUNT_POINT="${LOCAL_MOUNT_POINT:-}"
         log_info "Loaded configuration from $PROJECT_ENV_FILE. LOCAL_MOUNT_POINT: '$LOCAL_MOUNT_POINT'"
     elif [ -f "$HOME_ENV_FILE" ]; then
-        log_info "Found home .env file: $HOME_ENV_FILE. Sourcing..."
-        # shellcheck source=~/.stentor/.env
+        log_info "Found home stentor.conf file: $HOME_ENV_FILE. Sourcing..."
+        # shellcheck source=~/.stentor/stentor.conf
         source "$HOME_ENV_FILE"
         CONFIG_SOURCED=true
         LOCAL_MOUNT_POINT="${LOCAL_MOUNT_POINT:-}"
         log_info "Loaded configuration from $HOME_ENV_FILE. LOCAL_MOUNT_POINT: '$LOCAL_MOUNT_POINT'"
     else
-        log_info "No .env file found at $PROJECT_ENV_FILE or $HOME_ENV_FILE."
+        log_info "No stentor.conf file found at $PROJECT_ENV_FILE or $HOME_ENV_FILE."
     fi
 
     if [ ! "$CONFIG_SOURCED" = true ] || [ -z "$LOCAL_MOUNT_POINT" ]; then
-        log_warn "LOCAL_MOUNT_POINT not configured in .env or .env not found. Mount/unmount operations will be skipped by harvester."
+        log_warn "LOCAL_MOUNT_POINT not configured in stentor.conf or stentor.conf not found. Mount/unmount operations will be skipped by harvester."
         LOCAL_MOUNT_POINT="" # Ensure it's empty to prevent unintended logic
     fi
 }
@@ -354,7 +354,7 @@ main() {
     # Ensure lock is released and potential mount is cleaned up on exit
     trap cleanup_harvester EXIT INT TERM HUP
     
-    # Load .env configuration for LOCAL_MOUNT_POINT
+    # Load stentor.conf configuration for LOCAL_MOUNT_POINT
     load_env_config
 
     # Attempt to mount the remote directory if configured and not already mounted

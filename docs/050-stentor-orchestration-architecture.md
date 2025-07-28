@@ -101,7 +101,7 @@ The `process_audio.sh` script is the engine of the server-side workflow, and inc
 The periodic harvester integrates with the existing infrastructure:
 
 1. **Uses existing download_to_stentor.sh**
-2. **Respects existing .env configuration**
+2. **Respects existing stentor.conf configuration**
 3. **Leverages existing mount/unmount scripts**
 
 ## Workflow Diagrams
@@ -181,7 +181,7 @@ The periodic harvester integrates with the existing infrastructure:
 ## Security Considerations
 
 ### Client-Side
-- Secure storage of SSH credentials in .env files
+- Secure storage of SSH credentials in stentor.conf files
 - Validation of URLs before processing
 - Rate limiting to avoid overwhelming sources
 

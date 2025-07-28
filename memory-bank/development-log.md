@@ -198,11 +198,11 @@ summary: A reverse-chronological log detailing session activities, technical dec
 
 **Key Files Created/Modified**:
 - `scripts/client-side/download_to_stentor.sh` - Main download script
-- `scripts/client-side/stentor_client.env.example` - Configuration template
-- Updated `.gitignore` to exclude sensitive `.env` files
+- `scripts/client-side/stentor_clientstentor.conf.example` - Configuration template
+- Updated `.gitignore` to exclude sensitive `stentor.conf` files
 
 **Configuration Management**:
-- Supports both project-local (`.env`) and user-global (`~/.stentor/.env`) configuration
+- Supports both project-local (`stentor.conf`) and user-global (`~/.stentor/stentor.conf`) configuration
 - Secure credential handling with fallback mechanisms
 - Template file provided for easy setup
 
@@ -273,17 +273,17 @@ summary: A reverse-chronological log detailing session activities, technical dec
 **Key Files Created**:
 - `scripts/client-side/mount_droplet_yt.sh` - SSHFS mounting with comprehensive error handling
 - `scripts/client-side/unmount_droplet_yt.sh` - Safe unmounting with process checking
-- `scripts/client-side/stentor_client.env.example` - Configuration template
+- `scripts/client-side/stentor_clientstentor.conf.example` - Configuration template
 
 **Features Implemented**:
 - Automatic dependency checking (sshfs, macFUSE on macOS)
-- Flexible configuration via `.env` files (project-local or user-global)
+- Flexible configuration via `stentor.conf` files (project-local or user-global)
 - SSH key support with fallback to password authentication
 - Comprehensive error messages and troubleshooting guidance
 - Safe unmounting with active process detection
 
 **Configuration Management**:
-- Support for both `scripts/client-side/.env` and `~/.stentor/.env`
+- Support for both `scripts/client-side/stentor.conf` and `~/.stentor/stentor.conf`
 - Template file with all required variables documented
 - Secure handling of SSH credentials
 
@@ -527,7 +527,7 @@ summary: A reverse-chronological log detailing session activities, technical dec
     *   Corrected information in `docs/040-stentor-key-decisions-and-learnings.md` regarding `whisper.cpp` model performance (specifically `base.en-q5_1`) on 1GB RAM and highlighted the necessity of audio segmentation for longer files.
     *   Updated `docs/020-installing-ffmpeg-and-whisper-cpp.md` to instruct users to list available Whisper models before downloading specific ones.
 *   Addressed documentation formatting for better usability:
-    *   Created a new rule `.cursor/rules/255-codeblock-formatting.mdc` to enforce unindented, readable code blocks for copy-pastable content (shell commands, config examples like `.env`).
+    *   Created a new rule `.cursor/rules/255-codeblock-formatting.mdc` to enforce unindented, readable code blocks for copy-pastable content (shell commands, config examples like `stentor.conf`).
     *   Applied this formatting (unindenting and adding surrounding line breaks) to code blocks in the new `docs/` files.
 *   Discussed the strategy for using placeholder usernames (e.g., `stentor_user`) in documentation versus actual usernames.
 

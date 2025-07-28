@@ -16,33 +16,33 @@ source "$(dirname "$0")/../utils/messaging_utils.sh"
 # * Configuration Loading
 # Determine the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-PROJECT_ENV_FILE="$SCRIPT_DIR/.env"
+PROJECT_ENV_FILE="$SCRIPT_DIR/stentor.conf"
 HOME_STENTOR_DIR="$HOME/.stentor"
-HOME_ENV_FILE="$HOME_STENTOR_DIR/.env"
+HOME_ENV_FILE="$HOME_STENTOR_DIR/stentor.conf"
 
 CONFIG_SOURCED=false
-# Try to source project-local .env file first
+# Try to source project-local stentor.conf file first
 if [ -f "$PROJECT_ENV_FILE" ]; then
-    # shellcheck source=./.env
+    # shellcheck source=./stentor.conf
     source "$PROJECT_ENV_FILE"
     CONFIG_SOURCED=true
     echo "Loaded configuration from $PROJECT_ENV_FILE"
 elif [ -f "$HOME_ENV_FILE" ]; then
-    # shellcheck source=~/.stentor/.env
+    # shellcheck source=~/.stentor/stentor.conf
     source "$HOME_ENV_FILE"
     CONFIG_SOURCED=true
     echo "Loaded configuration from $HOME_ENV_FILE"
 else
-    echo "Error: Configuration file (.env) not found." >&2
+    echo "Error: Configuration file (stentor.conf) not found." >&2
     echo "Please create either $PROJECT_ENV_FILE (recommended for project-specific settings)" >&2
     echo "OR $HOME_ENV_FILE (for global settings; you may need to create $HOME_STENTOR_DIR first)." >&2
-    echo "You can copy 'scripts/client-side/stentor_client.env.example' to one of these locations (as .env) and populate it." >&2
+    echo "You can copy 'scripts/client-side/stentor_clientstentor.conf.example' to one of these locations (as stentor.conf) and populate it." >&2
     exit 1
 fi
 
-# Check for necessary variable from the .env file
+# Check for necessary variable from the stentor.conf file
 if [ -z "${LOCAL_MOUNT_POINT:-}" ]; then # Check if LOCAL_MOUNT_POINT is set and not empty
-    echo "Error: Required variable 'LOCAL_MOUNT_POINT' is not set in the sourced .env file." >&2
+    echo "Error: Required variable 'LOCAL_MOUNT_POINT' is not set in the sourced stentor.conf file." >&2
     echo "Please ensure it is defined in either $PROJECT_ENV_FILE or $HOME_ENV_FILE." >&2
     exit 1
 fi

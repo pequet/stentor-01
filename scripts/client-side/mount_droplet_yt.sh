@@ -16,9 +16,9 @@ source "$(dirname "$0")/../utils/messaging_utils.sh"
 # * Configuration Loading
 # Determine the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-PROJECT_ENV_FILE="$SCRIPT_DIR/.env"
+PROJECT_ENV_FILE="$SCRIPT_DIR/stentor.conf"
 HOME_STENTOR_DIR="$HOME/.stentor"
-HOME_ENV_FILE="$HOME_STENTOR_DIR/.env"
+HOME_ENV_FILE="$HOME_STENTOR_DIR/stentor.conf"
 
 # ** Dependency Check: sshfs
 echo "Checking for sshfs dependency..."
@@ -55,15 +55,15 @@ fi
 # ** End Dependency Check
 
 CONFIG_SOURCED=false
-# Try to source project-local .env file first
+# Try to source project-local stentor.conf file first
 if [ -f "$PROJECT_ENV_FILE" ]; then
-    # shellcheck source=./.env
+    # shellcheck source=./stentor.conf
     source "$PROJECT_ENV_FILE"
     CONFIG_SOURCED=true
     echo "Loaded configuration from $PROJECT_ENV_FILE"
-# Else, try to source from $HOME/.stentor/.env
+# Else, try to source from $HOME/.stentor/stentor.conf
 elif [ -f "$HOME_ENV_FILE" ]; then
-    # shellcheck source=~/.stentor/.env
+    # shellcheck source=~/.stentor/stentor.conf
     source "$HOME_ENV_FILE"
     CONFIG_SOURCED=true
     echo "Loaded configuration from $HOME_ENV_FILE"
@@ -71,22 +71,22 @@ else
     echo "Error: Configuration file not found." >&2
     echo "Please create either $PROJECT_ENV_FILE" >&2
     echo "OR $HOME_ENV_FILE (you might need to create $HOME_STENTOR_DIR first)." >&2
-    echo "You can copy scripts/client-side/stentor_client.env.example to one of these locations and populate it." >&2
+    echo "You can copy scripts/client-side/stentor_clientstentor.conf.example to one of these locations and populate it." >&2
     exit 1
 fi
 
-# Check for necessary variables from the .env file
+# Check for necessary variables from the stentor.conf file
 REQUIRED_VARS=("STENTOR_REMOTE_USER" "STENTOR_REMOTE_HOST" "STENTOR_REMOTE_AUDIO_INBOX_DIR" "LOCAL_MOUNT_POINT")
 missing_vars=0
 for var_name in "${REQUIRED_VARS[@]}"; do
     if [ -z "${!var_name:-}" ]; then # Check if var is unset or empty
-        echo "Error: Required variable '$var_name' is not set in the sourced .env file." >&2
+        echo "Error: Required variable '$var_name' is not set in the sourced stentor.conf file." >&2
         missing_vars=1
     fi
 done
 
 if [ "$missing_vars" -eq 1 ]; then
-    echo "Please ensure all required variables are set in your .env file." >&2
+    echo "Please ensure all required variables are set in your stentor.conf file." >&2
     exit 1
 fi
 
@@ -108,7 +108,7 @@ if [ ! -d "$LOCAL_MOUNT_POINT" ]; then
     cat > "$INFO_FILE_PATH" << 'EOF_INFO_MOUNT'
 # Stentor Droplet Local Mount Point Information
 
-This directory was automatically created by the `mount_droplet_yt.sh` script because it was specified as the LOCAL_MOUNT_POINT in your .env file and did not already exist.
+This directory was automatically created by the `mount_droplet_yt.sh` script because it was specified as the LOCAL_MOUNT_POINT in your stentor.conf file and did not already exist.
 
 Its primary purpose is to serve as a local mount point for your Stentor droplet's remote audio inbox (or other configured remote directory via STENTOR_REMOTE_AUDIO_INBOX_DIR).
 
@@ -133,7 +133,7 @@ if mount | grep -q "$EXPANDED_LOCAL_MOUNT_POINT_FOR_GREP"; then
 fi
 
 # SSHFS mount options (can be customized)
-# Determine volume name: use STENTOR_VOLUME_NAME from .env if set, otherwise default
+# Determine volume name: use STENTOR_VOLUME_NAME from stentor.conf if set, otherwise default
 if [ -n "${STENTOR_VOLUME_NAME:-}" ]; then
     VOL_NAME="${STENTOR_VOLUME_NAME}"
 else
@@ -181,7 +181,7 @@ else
     echo "  2. For Linux: Install sshfs (e.g., \'sudo apt install sshfs\')." >&2
     echo "  3. Verify SSH access to ${STENTOR_REMOTE_USER}@${STENTOR_REMOTE_HOST} is working (e.g., \'ssh ${STENTOR_REMOTE_USER}@${STENTOR_REMOTE_HOST}\')." >&2
     echo "  4. Check that the remote directory '${CMD_REMOTE_PATH}' exists on the server." >&2
-    echo "  5. Review the variables in your .env file (either $PROJECT_ENV_FILE or $HOME_ENV_FILE)." >&2
+    echo "  5. Review the variables in your stentor.conf file (either $PROJECT_ENV_FILE or $HOME_ENV_FILE)." >&2
     echo "  6. If using 'allow_other', ensure 'user_allow_other' is set in /etc/fuse.conf (and you may need to be root or use sudo for that option)." >&2
     echo "  7. If using a custom SSH key (STENTOR_SSH_KEY_PATH), ensure it's correct and accessible." >&2
     exit 1

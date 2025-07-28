@@ -19,7 +19,7 @@ package-lock.json
 yarn.lock
 
 # Environments
-.env*
+stentor.conf*
 .venv
 env/
 venv/
@@ -69,3 +69,6 @@ logs/
 # Memory Bank (allowed)
 # memory-bank/
 
+# Stentor
+*.conf
+**/conf/

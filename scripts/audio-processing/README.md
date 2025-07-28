@@ -25,7 +25,7 @@ stentor_harvesting/
 Local:
 ```
 $HOME/.stentor/
-├── .env                     # Environment variables
+├── stentor.conf                     # Environment variables
 ├── logs/                    # Harvester and processor logs
 ├── content_sources.txt      # Simple URL list
 ├── periodic_harvester.lock  # Harvester lock file
@@ -101,7 +101,7 @@ The core audio processing script with automation enhancements.
 
 ### 1. Configure Environment
 
-Create `$HOME/.stentor/.env`:
+Create `$HOME/.stentor/stentor.conf`:
 ```bash
 # Remote directory to mount (contains inbox, processing, completed, etc.)
 STENTOR_REMOTE_AUDIO_INBOX_DIR="~/stentor_harvesting"
@@ -225,7 +225,7 @@ This automation system works with your existing infrastructure:
 - **`download_to_stentor.sh`** - Used by periodic_harvester.sh for actual downloads
 - **`mount_droplet_yt.sh`** - Called automatically when needed
 - **`unmount_droplet_yt.sh`** - Called automatically for cleanup
-- **Existing `.env` configuration** - Fully compatible
+- **Existing `stentor.conf` configuration** - Fully compatible
 
 ## Maintenance
 
@@ -261,4 +261,4 @@ For troubleshooting:
 1. Check the log files in `$HOME/.stentor/logs/`
 2. Verify all dependencies are installed (ffmpeg, yt-dlp, whisper)
 3. Ensure proper file permissions on all scripts
-4. Check that `.env` configuration is correct 
+4. Check that `stentor.conf` configuration is correct 

@@ -87,4 +87,4 @@ These scripts are not meant to be run directly as part of the periodic automatio
 
 -   **`$HOME/.stentor/target_webpage_url.txt`**: A simple text file containing the URLs for `harvest_webpage_links.sh` to scrape, one URL per line.
 -   **`$HOME/.stentor/content_sources.txt`**: The master list of YouTube video/playlist URLs to be downloaded. This file is managed by `harvest_webpage_links.sh` and read by `periodic_harvester.sh`.
--   **`$HOME/.stentor/.env`**: Contains environment variables for the remote server connection (mount point, user, host), used by the mount/unmount and download scripts. 
+-   **`$HOME/.stentor/stentor.conf`**: Contains environment variables for the remote server connection (mount point, user, host), used by the mount/unmount and download scripts. 
