@@ -18,7 +18,7 @@ set -o pipefail
 # Features:
 #   - Supports multiple YouTube video or playlist URLs.
 #   - Allows specifying a custom download destination directory.
-#   - If destination is the configured droplet mount point (from stentor.conf):
+#   - If destination is the configured droplet mount point (from .env):
 #     - Automatically mounts the remote directory if not already mounted.
 #     - Automatically unmounts after completion ONLY if mounted by this script.
 #   - Uses yt-dlp's download archive feature to prevent re-downloading files.
@@ -32,11 +32,11 @@ set -o pipefail
 #
 # Options:
 #   -d, --destination DIR  Specify the download destination directory.
-#                          If not specified, LOCAL_MOUNT_POINT from a stentor.conf file is used if available.
-#                          The stentor.conf file is searched in this order:
+#                          If not specified, LOCAL_MOUNT_POINT from a .env file is used if available.
+#                          The .env file is searched in this order:
 #                            1. $PROJECT_ENV_FILE
 #                            2. $HOME_ENV_FILE
-#                          If no stentor.conf is found or LOCAL_MOUNT_POINT is not set, and -d is not used,
+#                          If no .env is found or LOCAL_MOUNT_POINT is not set, and -d is not used,
 #                          the script will exit.
 #   -B, --use-break-on-existing Optional. If set, yt-dlp will stop downloading a playlist as soon
 #                             as it encounters an item already in the download archive.
@@ -64,9 +64,9 @@ source "$(dirname "$0")/../utils/messaging_utils.sh"
 
 # ** Script & Environment Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-PROJECT_ENV_FILE="$SCRIPT_DIR/stentor.conf"
+PROJECT_ENV_FILE="$SCRIPT_DIR/.env"
 HOME_STENTOR_DIR="$HOME/.stentor"
-HOME_ENV_FILE="$HOME_STENTOR_DIR/stentor.conf"
+HOME_ENV_FILE="$HOME_STENTOR_DIR/.env"
 
 # Lock configuration
 LOCK_FILE="$HOME/.stentor/download_to_stentor.lock"
@@ -86,7 +86,7 @@ fi
 DOWNLOAD_URLS=()
 DESTINATION_OVERRIDE=""
 FINAL_DESTINATION_DIR=""
-LOCAL_MOUNT_POINT="" # Will be loaded from stentor.conf
+LOCAL_MOUNT_POINT="" # Will be loaded from .env
 SCRIPT_PERFORMED_MOUNT=false
 YT_DLP_USE_BREAK_ON_EXISTING=false # New flag variable
 
@@ -305,7 +305,7 @@ Downloads YouTube videos and playlists as MP3 files.
 Features:
   - Supports multiple YouTube video or playlist URLs.
   - Allows specifying a custom download destination directory.
-  - If destination is the configured droplet mount point (from stentor.conf):
+  - If destination is the configured droplet mount point (from .env):
     - Automatically mounts the remote directory if not already mounted.
     - Automatically unmounts after completion ONLY if mounted by this script.
   - Uses yt-dlp's download archive feature to prevent re-downloading files.
@@ -315,11 +315,11 @@ Features:
 
 Options:
   -d, --destination DIR  Specify the download destination directory.
-                         If not specified, LOCAL_MOUNT_POINT from a stentor.conf file is used if available.
-                         The stentor.conf file is searched in this order:
+                         If not specified, LOCAL_MOUNT_POINT from a .env file is used if available.
+                         The .env file is searched in this order:
                            1. $PROJECT_ENV_FILE
                            2. $HOME_ENV_FILE
-                         If no stentor.conf is found or LOCAL_MOUNT_POINT is not set, and -d is not used,
+                         If no .env is found or LOCAL_MOUNT_POINT is not set, and -d is not used,
                          the script will exit.
   -B, --use-break-on-existing Optional. If set, yt-dlp will stop downloading a playlist as soon
                              as it encounters an item already in the download archive.
@@ -443,28 +443,28 @@ main() {
     echo_log "Unmount script '$UNMOUNT_SCRIPT' found."
     echo_log "Dependency checks passed."
 
-    # 3. Load stentor.conf configuration
-    echo_log "Attempting to load stentor.conf configuration..."
+    # 3. Load .env configuration
+    echo_log "Attempting to load .env configuration..."
     CONFIG_SOURCED=false
     if [ -f "$PROJECT_ENV_FILE" ]; then
-        echo_log "Found project stentor.conf file: $PROJECT_ENV_FILE. Sourcing..."
-        # shellcheck source=./stentor.conf
+        echo_log "Found project .env file: $PROJECT_ENV_FILE. Sourcing..."
+        # shellcheck source=./.env
         source "$PROJECT_ENV_FILE"
         CONFIG_SOURCED=true
         LOCAL_MOUNT_POINT="${LOCAL_MOUNT_POINT:-}" # Ensure it's defined, even if empty after source
         echo_log "Loaded configuration from $PROJECT_ENV_FILE. LOCAL_MOUNT_POINT: '$LOCAL_MOUNT_POINT'"
     elif [ -f "$HOME_ENV_FILE" ]; then
-        echo_log "Found home stentor.conf file: $HOME_ENV_FILE. Sourcing..."
-        # shellcheck source=~/.stentor/stentor.conf
+        echo_log "Found home .env file: $HOME_ENV_FILE. Sourcing..."
+        # shellcheck source=~/.stentor/.env
         source "$HOME_ENV_FILE"
         CONFIG_SOURCED=true
         LOCAL_MOUNT_POINT="${LOCAL_MOUNT_POINT:-}"
         echo_log "Loaded configuration from $HOME_ENV_FILE. LOCAL_MOUNT_POINT: '$LOCAL_MOUNT_POINT'"
     else
-        echo_log "No stentor.conf file found at $PROJECT_ENV_FILE or $HOME_ENV_FILE."
+        echo_log "No .env file found at $PROJECT_ENV_FILE or $HOME_ENV_FILE."
     fi
     if [ ! "$CONFIG_SOURCED" = true ]; then
-        echo_warn "No stentor.conf file was sourced. LOCAL_MOUNT_POINT will be empty unless destination is overridden."
+        echo_warn "No .env file was sourced. LOCAL_MOUNT_POINT will be empty unless destination is overridden."
     fi
 
     # 4. Determine Final Destination Directory
@@ -474,7 +474,7 @@ main() {
         echo_log "Using destination override: $FINAL_DESTINATION_DIR"
     elif [ -n "$LOCAL_MOUNT_POINT" ]; then
         eval FINAL_DESTINATION_DIR="$LOCAL_MOUNT_POINT"
-        echo_log "Using LOCAL_MOUNT_POINT from stentor.conf as destination: $FINAL_DESTINATION_DIR"
+        echo_log "Using LOCAL_MOUNT_POINT from .env as destination: $FINAL_DESTINATION_DIR"
     else
         # This path should ideally not be reached if logic above is correct, but as a safeguard:
         echo_error "Critical Error: Destination could not be determined. LOCAL_MOUNT_POINT is empty and no override was provided."
@@ -485,7 +485,7 @@ main() {
 
     # 5. Mount Management (if destination is the configured LOCAL_MOUNT_POINT)
     SCRIPT_PERFORMED_MOUNT=false # Reset before attempting mount
-    if [ -n "$LOCAL_MOUNT_POINT" ]; then # Only if LOCAL_MOUNT_POINT was defined in stentor.conf
+    if [ -n "$LOCAL_MOUNT_POINT" ]; then # Only if LOCAL_MOUNT_POINT was defined in .env
         eval EXPANDED_LOCAL_MOUNT_POINT_CHECK="$LOCAL_MOUNT_POINT"
         eval EXPANDED_FINAL_DESTINATION_DIR_CHECK="$FINAL_DESTINATION_DIR"
 
@@ -539,7 +539,7 @@ main() {
             echo_log "Destination '$FINAL_DESTINATION_DIR' is not the configured remote mount point. No mount action needed for this destination."
         fi
     else
-        echo_log "LOCAL_MOUNT_POINT not defined in stentor.conf. Assuming local download, no mount action needed."
+        echo_log "LOCAL_MOUNT_POINT not defined in .env. Assuming local download, no mount action needed."
     fi
 
     # 6. Ensure Destination Directory Exists
