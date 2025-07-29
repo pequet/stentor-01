@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# --- Set PATH for launchd ---
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 # Standard Error Handling
 set -e
 set -u
@@ -75,7 +78,7 @@ HOME_ENV_FILE="$HOME_STENTOR_DIR/stentor.conf" # For loading LOCAL_MOUNT_POINT
 LOCK_FILE="$HOME/.stentor/periodic_harvester.lock"
 LOCK_TIMEOUT=300  # 300 seconds timeout
 CONTENT_SOURCES_FILE="" # NOW PROVIDED AS A SCRIPT ARGUMENT
-DOWNLOAD_SCRIPT="$(dirname "$0")/download_to_stentor.sh"
+DOWNLOAD_SCRIPT="${SCRIPT_DIR}/download_to_stentor.sh"
 LOCK_ACQUIRED_BY_THIS_PROCESS=false # Flag to track if this instance acquired the lock
 
 LOCAL_MOUNT_POINT="" # Will be loaded from stentor.conf

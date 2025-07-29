@@ -657,6 +657,7 @@ main() {
             rm "$temp_output_file"
         fi
         
+        # New, more intelligent exit code and output analysis
         if [ $yt_dlp_exit_code -eq 0 ]; then
             print_info "yt-dlp completed successfully for URL: $url (local download to $CURRENT_URL_TEMP_DIR)"
 
@@ -683,29 +684,28 @@ main() {
                     FAIL_COUNT=$((FAIL_COUNT + 1))
                 fi
             else
-                print_info "No new files to transfer from '$CURRENT_URL_TEMP_DIR' for URL: $url (directory is empty or only contains excluded file types)."
-                # Even if nothing was transferred, yt-dlp considered this URL processed (e.g., already in archive)
-                # So we should still count it as processed if yt-dlp itself exited successfully.
-                PROCESSED_COUNT=$((PROCESSED_COUNT + 1)) 
+                print_info "No new files were downloaded for URL: $url (already in archive or playlist empty)."
+                PROCESSED_COUNT=$((PROCESSED_COUNT + 1))
             fi
         else
-            print_error "Failed: yt-dlp failed for URL: $url with exit code $yt_dlp_exit_code."
-            FAIL_COUNT=$((FAIL_COUNT + 1)) # Increment fail count here for yt-dlp failures
-            
-            # Check for mount-related errors in the output (even on yt-dlp failure)
-            if echo "$yt_dlp_output" | grep -qi "device not configured\|socket is not connected\|no such file or directory.*mount"; then
+            # Check for the specific "already recorded in archive" message
+            if echo "$yt_dlp_output" | grep -q "has already been recorded in the archive"; then
+                print_info "No new files were downloaded for URL: $url (all items already in archive)."
+                PROCESSED_COUNT=$((PROCESSED_COUNT + 1))
+                # IMPORTANT: We override the exit code to 0 because this is not a true failure.
+                yt_dlp_exit_code=0
+            elif echo "$yt_dlp_output" | grep -qi "device not configured\|socket is not connected\|no such file or directory.*mount"; then
                 print_error "Failed: SSHFS connection lost during download (URL: $url)"
-                # Cleanup the local temporary directory for this failed URL before exiting
                 if [ -n "$CURRENT_URL_TEMP_DIR" ] && [ -d "$CURRENT_URL_TEMP_DIR" ]; then
                     print_info "Cleaning up temporary directory '$CURRENT_URL_TEMP_DIR' due to critical mount failure for '$url'..."
                     rm -rf "$CURRENT_URL_TEMP_DIR"
                 fi
-                exit 5 # Exit immediately on mount failure - no point continuing
+                exit 5 # Critical mount failure
             else
+                print_error "Failed: yt-dlp failed for URL: $url with exit code $yt_dlp_exit_code."
                 log_error "Raw yt-dlp output for '$url':"
                 log_error "$yt_dlp_output"
-                # FAIL_COUNT already incremented above for general yt-dlp failure
-                print_info "Continuing with remaining URLs after yt-dlp failure for '$url'..."
+                FAIL_COUNT=$((FAIL_COUNT + 1))
             fi
         fi
 
@@ -742,9 +742,13 @@ main() {
     print_completed "YouTube Download (Processed URLs/Playlists: $PROCESSED_COUNT, Failed: $FAIL_COUNT)"
     print_info "(For individual file status, including skips of already downloaded items, please refer to the content of '$REMOTE_DOWNLOAD_ARCHIVE_FILE' and the destination directory '$REMOTE_INBOX_DIR'.)"
 
+    # New logic to control the final exit code of the script
+    if [ "$FAIL_COUNT" -gt 0 ]; then
+        exit 1 # Exit with a failure code if any URL genuinely failed
+    else
+        exit 0 # Exit with success if all URLs were processed or skipped
+    fi
 }
 
 # Call main function with all script arguments
-main "$@"
-
-exit 0 
+main "$@" 

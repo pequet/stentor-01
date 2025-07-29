@@ -139,7 +139,7 @@ main() {
         local interval_seconds=$((interval_minutes * 60))
 
         local generated_plist_content
-        generated_plist_content=$(sed -e "s|{{CONTENT_SOURCES_FILE_PATH}}|${escaped_sources_path}|g" -e "s|{{INTERVAL_IN_SECONDS}}|${interval_seconds}|g" "${assets_dir}/${periodic_plist_template}")
+        generated_plist_content=$(sed -e "s|{{CONTENT_SOURCES_FILE_PATH}}|${escaped_sources_path}|g" -e "s|{{INTERVAL_IN_SECONDS}}|${interval_seconds}|g" -e "s|{{SOURCES_FILE_LABEL}}|${sources_file_label}|g" "${assets_dir}/${periodic_plist_template}")
         
         echo "${generated_plist_content}" > "${periodic_plist_path}"
         
@@ -156,6 +156,7 @@ main() {
     print_separator
     print_completed "Stentor Client-Side Installation Complete"
     print_info "IMPORTANT: Please ensure your stentor.conf file is set up correctly in '~/.stentor/' for remote server settings."
+    print_info "TROUBLESHOOTING: If the agent fails with 'Operation not permitted', see the README.md for a one-time fix."
     print_footer
 }
 

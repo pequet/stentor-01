@@ -38,6 +38,31 @@ The detailed setup, software installation, and workflow for the Stentor droplet 
 3.  **[020: Installing FFmpeg and Whisper.cpp](docs/020-installing-ffmpeg-and-whisper-cpp.md)**: Covers the installation of FFmpeg and `whisper.cpp` on the server.
 4.  **[030: Audio Processing Workflow](docs/030-stentor-audio-processing-workflow.md)**: Describes the end-to-end audio processing workflow, including file transfer and scripting.
 
+## System Automation & Operation
+
+This section provides instructions for automating the Stentor system on both the server and client machines.
+
+### Server-Side Automation (Cron)
+
+For continuous, automated audio processing on the server, a cron job is required. The server-side script is designed with a locking mechanism to prevent multiple instances from running at the same time, making it safe for frequent execution.
+
+**For a complete guide to setting up the cron job, using `tmux` for manual runs, and performing system health checks, please refer to the main server operation document:**
+
+-   **[080: Stentor Server Workflow, Automation, and Maintenance](docs/080-server-workflow-and-maintenance.md)**
+
+### Client-Side Automation (macOS `launchd`)
+
+The client-side scripts are designed to be run automatically on a schedule using macOS's built-in `launchd` service. The `install.sh` script handles the setup for you.
+
+To install and start the automated harvester on your local machine:
+1.  **Configure your content sources** by adding URLs to `~/.stentor/hourly_sources.txt`, `~/.stentor/daily_sources.txt`, and `~/.stentor/weekly_sources.txt`.
+2.  **Run the installer:**
+
+```bash
+./install.sh
+```
+This will set up a `launchd` agent that runs the `periodic_harvester.sh` script every 3 hours.
+
 ## Quick Commands / Cheat Sheet
 
 The following commands are for operating the Stentor system after it has been fully installed and configured as per the documentation.
@@ -88,17 +113,50 @@ Run these from your local machine to manage the remote filesystem and fetch new 
 
 `ssh` into your droplet and run these commands to process audio files.
 
-> **Process the Entire Queue**
+> **Run the Queue Processor Manually with `tmux`**
+>
+> For long-running jobs or to process a large backlog, you must use `tmux` to prevent the session from dying if you disconnect.
 > ```bash
-> # Process all pending audio files in the harvest queue
-> ./scripts/server-side/queue_processor.sh
+> # Start a named tmux session
+> tmux new -s audio-processing
+>
+> # Run the queue processor with recommended flags
+> ~/stentor-01/scripts/audio-processing/queue_processor.sh --cleanup-wav-files --cleanup-original-audio --models "medium.en-q5_0,small.en-q5_1,base.en-q5_1" --timeout-multiplier 20
+>
+> # Detach with Ctrl+b then d
 > ```
+>
+> **For full details on automation and maintenance, see the [Server Workflow Guide](docs/080-server-workflow-and-maintenance.md).**
 
-> **Process a Single File Manually**
-> ```bash
-> # Process a single audio file on demand
-> ./scripts/server-side/process_audio_file.sh /path/to/audiofile.mp3
-> ```
+</details>
+
+## Troubleshooting
+
+<details>
+<summary>Fix for "Operation not permitted" on macOS</summary>
+<br />
+
+If your automated scripts fail to run via `launchd` and the logs show a `/bin/bash: ... Operation not permitted` error, it is because macOS security policies are blocking the background process from executing scripts located in certain cloud-synced directories, such as an Obsidian iCloud container.
+
+The script itself is not the problem. The issue is that `launchd` runs in a restricted environment and does not have permission to access files in that specific sandboxed location.
+
+To fix this, you must grant **Full Disk Access** to the shell that `launchd` uses to execute the script (`/bin/bash`).
+
+### Instructions
+
+1.  **Open System Settings**
+    Navigate to **Privacy & Security** > **Full Disk Access**.
+
+2.  **Add the Shell Executable**
+    - Click the **+** button to add an application.
+    - The `/bin` directory is hidden. Press **Command + Shift + G** to open the "Go to Folder" dialog.
+    - Type `/bin` and click **Go**.
+    - Select `bash` from the list and click **Open**.
+
+3.  **Enable Full Disk Access**
+    - Find `bash` in the Full Disk Access list and ensure the toggle switch next to it is **ON**.
+
+After making this change, reload the `launchd` agent by re-running the `install.sh` script. This is a one-time fix that permanently resolves the permission issue for background tasks running from your iCloud-synced project directory.
 
 </details>
 

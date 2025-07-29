@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.pequet.stentor.periodic</string>
+    <string>com.pequet.stentor.periodic.{{SOURCES_FILE_LABEL}}</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/periodic_harvester.sh</string>
@@ -15,8 +15,8 @@
     <key>StartInterval</key>
     <integer>{{INTERVAL_IN_SECONDS}}</integer>
     <key>StandardErrorPath</key>
-    <string>/tmp/com.pequet.stentor.periodic.err</string>
+    <string>/tmp/com.pequet.stentor.periodic.{{SOURCES_FILE_LABEL}}.err</string>
     <key>StandardOutPath</key>
-    <string>/tmp/com.pequet.stentor.periodic.out</string>
+    <string>/tmp/com.pequet.stentor.periodic.{{SOURCES_FILE_LABEL}}.out</string>
 </dict>
 </plist> 

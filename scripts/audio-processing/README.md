@@ -25,7 +25,7 @@ stentor_harvesting/
 Local:
 ```
 $HOME/.stentor/
-├── stentor.conf                     # Environment variables
+├── stentor.conf             # Environment variables
 ├── logs/                    # Harvester and processor logs
 ├── content_sources.txt      # Simple URL list
 ├── periodic_harvester.lock  # Harvester lock file
