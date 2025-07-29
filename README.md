@@ -48,6 +48,13 @@ The following commands are for operating the Stentor system after it has been fu
 
 Run these from your local machine to manage the remote filesystem and fetch new content.
 
+> **Install Client-Side Tools**
+> ```bash
+> # Run the installer to set up dependencies and scripts
+> ./install.sh
+> ```
+> 
+> -   **First Step**: This should be the first command you run after cloning the repository on your client machine. It will check for dependencies, create the necessary configuration files, and make the other client-side scripts executable.
 > **Run Content Harvester**
 > ```bash
 > # Scan sources, download new content, and transfer to the droplet

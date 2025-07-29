@@ -25,13 +25,13 @@ summary: Tracks the high-level project journey through standardized milestones a
 - [x] **M07: Core Module B Implemented (e.g., Audio Processing/Transcription):** Second major functional component working. (Completed: 2025-06-05)
 - [x] **M08: Key Feature X Prototyped (e.g., Queue Management):** Proof of concept for a critical feature. (Completed: 2025-06-05)
 - [x] **M09: Key Feature X Completed (e.g., Queue Management):** Feature fully implemented and tested. (Completed: 2025-06-05)
-- [x] **M10: Basic UI/UX in Place (If applicable, e.g., CLI usability):** Initial user interface usable and clear. (Completed: 2025-06-05)
+- [x] **M10: Basic UI/UX in Place (If applicable, e.g., CLI usability):** Initial user interface usable and clear. (Completed: 2025-07-29)
 
 **Phase 3: Refinement & Testing**
 - [ ] **M11: Unit Tests for Core Modules:** Basic test coverage achieved. (Completed: YYYY-MM-DD)
 - [x] **M12: Integration Testing Pass:** Key components work together seamlessly. (Completed: 2025-06-05)
 - [x] **M13: Documentation - Core Systems:** Essential internal/technical documentation written. (Completed: 2025-06-19)
-- [x] **M14: Code Refactor Pass 1:** Major areas of code reviewed and improved for clarity/efficiency. (Completed: 2025-06-19)
+- [x] **M14: Code Refactor Pass 1:** Major areas of code reviewed and improved for clarity/efficiency. (Completed: 2025-07-29)
 - [x] **M15: User Feedback Session 1 (If applicable, e.g., self-testing):** Initial feedback gathered and addressed. (Completed: 2025-06-19)
 
 **Phase 4: Release & Iteration**

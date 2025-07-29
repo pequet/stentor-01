@@ -61,15 +61,26 @@ set -o pipefail
 #   - Buy Me a Coffee: https://buymeacoffee.com/pequet
 #   - GitHub Sponsors: https://github.com/sponsors/pequet
 
-# * Source Utilities
-source "$(dirname "$0")/../utils/messaging_utils.sh"
+# --- Source Utilities ---
+# Resolve the true directory of this script, even if it's a symlink.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # Resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # If $SOURCE was a relative symlink, resolve it relative to the symlink's path
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+source "${SCRIPT_DIR}/../utils/logging_utils.sh"
+source "${SCRIPT_DIR}/../utils/messaging_utils.sh"
+
+# Set log file path for the logging utility
+print_FILE_PATH="$HOME/.stentor/logs/queue_processor.log"
 
 # * Global Variables and Configuration
 
 # ** Lock File Configuration
 LOCK_FILE="$HOME/.stentor/queue_processor.lock"
 LOCK_TIMEOUT=7200  # 2 hours in seconds
-LOG_FILE="$HOME/.stentor/logs/queue_processor.log"
 LOCK_ACQUIRED_BY_THIS_PROCESS=false # Flag to track if this instance acquired the lock
 
 # Processing directories
@@ -91,38 +102,6 @@ AUDIO_EXTENSIONS=("mp3" "wav" "m4a" "flac" "ogg" "aac")
 
 CHILD_PID="" # Initialize CHILD_PID to manage the process_audio.sh script
 
-# * Logging Functions (Local to queue_processor.sh)
-_log_message_local() {
-    local level="$1"
-    local message="$2"
-    local timestamp
-    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    # Keep [QUEUE_PROCESSOR] specific to this script
-    local log_entry="[$timestamp] [QUEUE_PROCESSOR] [$level] $message"
-    
-    # Always print to stdout
-    printf -- "%s\n" "$log_entry"
-    
-    # Also write to the script-specific LOG_FILE
-    if [ -n "${LOG_FILE:-}" ]; then # Check if LOG_FILE is set and not empty
-        if ! mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null; then
-            printf -- "[%s] [QUEUE_PROCESSOR] [ERROR] Cannot create log directory: %s for local log file\n" "$timestamp" "$(dirname "$LOG_FILE")" >&2
-        fi
-        if ! printf -- "%s\n" "$log_entry" >> "$LOG_FILE" 2>/dev/null; then
-            printf -- "[%s] [QUEUE_PROCESSOR] [ERROR] Cannot write to local LOG_FILE: %s\n" "$timestamp" "$LOG_FILE" >&2
-        fi
-    fi
-}
-
-log_info_local() { _log_message_local "INFO" "$1"; }
-log_warn_local() { _log_message_local "WARN" "$1"; }
-log_error_local() {
-    _log_message_local "ERROR" "$1"
-    printf "ERROR: %s\n" "$1" >&2 # Direct to stderr
-}
-# Retain a simple 'log_local' for brevity, mapping to info.
-log_local() { log_info_local "$1"; }
-
 # * Display Help Function
 display_help() {
     # Extracts the "Usage" and "Options" sections from the script's own comments.
@@ -142,9 +121,9 @@ acquire_lock() {
         local lock_file_age_info="(age not calculated)"
         local lock_file_age_seconds=-1
 
-        echo "--- DEBUG LOCK START ---" >&2
-        echo "DEBUG: Lock file found: $LOCK_FILE" >&2
-        echo "DEBUG: Content of LOCK_FILE (PID read): '$lock_pid'" >&2
+        print_debug "--- DEBUG LOCK START ---"
+        print_debug "Lock file found: $LOCK_FILE"
+        print_debug "Content of LOCK_FILE (PID read): '$lock_pid'"
 
         local current_time=$(date +%s)
         local file_mod_time=$(stat -c %Y "$LOCK_FILE" 2>/dev/null || stat -f %m "$LOCK_FILE" 2>/dev/null)
@@ -152,72 +131,72 @@ acquire_lock() {
         if [[ -n "$file_mod_time" ]]; then
             lock_file_age_seconds=$((current_time - file_mod_time))
             lock_file_age_info="(Age: ${lock_file_age_seconds}s, Timeout: ${LOCK_TIMEOUT}s)"
-            echo "DEBUG: Calculated lock_file_age_seconds: $lock_file_age_seconds" >&2
-            echo "DEBUG: LOCK_TIMEOUT: $LOCK_TIMEOUT" >&2
-            echo "DEBUG: Formatted lock_file_age_info: $lock_file_age_info" >&2
+            print_debug "Calculated lock_file_age_seconds: $lock_file_age_seconds"
+            print_debug "LOCK_TIMEOUT: $LOCK_TIMEOUT"
+            print_debug "Formatted lock_file_age_info: $lock_file_age_info"
         else
             lock_file_age_info="(could not determine age)"
-            echo "DEBUG: Could not determine file_mod_time. lock_file_age_seconds remains $lock_file_age_seconds." >&2
+            print_debug "Could not determine file_mod_time. lock_file_age_seconds remains $lock_file_age_seconds."
         fi
 
         local pid_check_command_exit_code
         if [[ -n "$lock_pid" ]]; then
-            echo "DEBUG: Preparing to check PID $lock_pid with 'kill -0 $lock_pid'" >&2
+            print_debug "Preparing to check PID $lock_pid with 'kill -0 $lock_pid'"
             kill -0 "$lock_pid" 2>/dev/null
             pid_check_command_exit_code=$?
-            echo "DEBUG: 'kill -0 $lock_pid' exit code: $pid_check_command_exit_code" >&2
+            print_debug "'kill -0 $lock_pid' exit code: $pid_check_command_exit_code"
         else
-            echo "DEBUG: lock_pid is empty. Assuming PID not running." >&2
+            print_debug "lock_pid is empty. Assuming PID not running."
             pid_check_command_exit_code=1 # Simulate PID not running if lock_pid is empty
         fi
 
         if [[ "$pid_check_command_exit_code" -eq 0 ]]; then
-            echo "DEBUG:BRANCH TAKEN: PID $lock_pid IS considered RUNNING." >&2
-            log_warn_local "Another queue processor instance is running (PID: $lock_pid). Details: $lock_file_age_info. Lock file: $LOCK_FILE"
-            echo "--- DEBUG LOCK END (PID RUNNING) ---" >&2
+            print_debug "DEBUG:BRANCH TAKEN: PID $lock_pid IS considered RUNNING."
+            print_warning "Another queue processor instance is running (PID: $lock_pid). Details: $lock_file_age_info. Lock file: $LOCK_FILE"
+            print_debug "--- DEBUG LOCK END (PID RUNNING) ---"
             return 1
         else
-            echo "DEBUG BRANCH TAKEN: PID $lock_pid IS considered NOT RUNNING (or PID was empty)." >&2
+            print_debug "DEBUG BRANCH TAKEN: PID $lock_pid IS considered NOT RUNNING (or PID was empty)."
             if [[ "$lock_file_age_seconds" -ne -1 ]]; then # Age was successfully calculated
-                echo "DEBUG: Comparing age: $lock_file_age_seconds > $LOCK_TIMEOUT ?" >&2
+                print_debug "Comparing age: $lock_file_age_seconds > $LOCK_TIMEOUT ?"
                 if [[ "$lock_file_age_seconds" -gt "$LOCK_TIMEOUT" ]]; then
-                    echo "DEBUG: AGE COMPARISON TRUE. Lock IS STALE." >&2
-                    log_info_local "Removing stale lock file (PID: $lock_pid). Details: $lock_file_age_info. Lock file: $LOCK_FILE"
+                    print_debug "AGE COMPARISON TRUE. Lock IS STALE."
+                    print_info "Removing stale lock file (PID: $lock_pid). Details: $lock_file_age_info. Lock file: $LOCK_FILE"
                     rm -f "$LOCK_FILE"
                 else
-                    echo "DEBUG: AGE COMPARISON FALSE. Lock IS NOT STALE ENOUGH." >&2
-                    log_warn_local "Lock file (PID: $lock_pid) exists but is not older than timeout. Details: $lock_file_age_info. Not removing. Lock file: $LOCK_FILE"
-                    echo "--- DEBUG LOCK END (PID NOT RUNNING, NOT STALE ENOUGH) ---" >&2
+                    print_debug "AGE COMPARISON FALSE. Lock IS NOT STALE ENOUGH."
+                    print_warning "Lock file (PID: $lock_pid) exists but is not older than timeout. Details: $lock_file_age_info. Not removing. Lock file: $LOCK_FILE"
+                    print_debug "--- DEBUG LOCK END (PID NOT RUNNING, NOT STALE ENOUGH) ---"
                     return 1
                 fi
             else # Age could not be determined earlier
-                echo "DEBUG: Age could not be calculated. Assuming stale and removing." >&2
-                log_warn_local "Could not determine age of lock file (PID: $lock_pid). Details: $lock_file_age_info. Assuming stale and removing. Lock file: $LOCK_FILE"
+                print_debug "Age could not be calculated. Assuming stale and removing."
+                print_warning "Could not determine age of lock file (PID: $lock_pid). Details: $lock_file_age_info. Assuming stale and removing. Lock file: $LOCK_FILE"
                 rm -f "$LOCK_FILE"
             fi
         fi
     fi
     
-    echo "DEBUG: Proceeding to create new lock file." >&2
+    print_debug "Proceeding to create new lock file."
     mkdir -p "$(dirname "$LOCK_FILE")"
     echo $$ > "$LOCK_FILE"
     LOCK_ACQUIRED_BY_THIS_PROCESS=true # Set flag as lock is acquired by this process
-    echo "--- DEBUG LOCK END (NEW LOCK CREATED or NO LOCK INITIALLY) ---" >&2
+    print_debug "--- DEBUG LOCK END (NEW LOCK CREATED or NO LOCK INITIALLY) ---"
     return 0
 }
 
 release_lock() {
     if [ "$LOCK_ACQUIRED_BY_THIS_PROCESS" = "true" ]; then
-        echo "DEBUG: release_lock called by owning process. Removing $LOCK_FILE" >&2
+        print_debug "release_lock called by owning process. Removing $LOCK_FILE"
         rm -f "$LOCK_FILE"
     else
-        echo "DEBUG: release_lock called, but lock not owned by this process. Lock not removed." >&2
+        print_debug "release_lock called, but lock not owned by this process. Lock not removed."
     fi
 }
 
 # * Directory Setup
 setup_directories() {
-    log_local "Setting up processing directories..."
+    print_debug "Setting up processing directories..."
     
     # Create .stentor logs directory first
     mkdir -p "$HOME/.stentor/logs"
@@ -226,17 +205,17 @@ setup_directories() {
         if [ ! -d "$dir" ]; then
             mkdir -p "$dir"
             if [ $? -ne 0 ]; then
-                log_error_local "Failed to create directory: $dir"
+                print_error "Failed to create directory: $dir"
                 exit 1
             fi
-            log_local "Created directory: $dir"
+            print_debug "Created directory: $dir"
         fi
     done
     
     # Create processed history file if it doesn't exist
     if [ ! -f "$PROCESSED_HISTORY_FILE" ]; then
         touch "$PROCESSED_HISTORY_FILE"
-        log_local "Created processed history file: $PROCESSED_HISTORY_FILE"
+        print_info "Created processed history file: $PROCESSED_HISTORY_FILE"
     fi
 }
 
@@ -245,16 +224,16 @@ get_file_hash() {
     local file_path="$1"
     local hash=""
     
-    log_local "DEBUG_HASH: get_file_hash received file_path: '$file_path'"
+    print_info "DEBUG_HASH: get_file_hash received file_path: '$file_path'"
     
     if command -v md5sum &> /dev/null; then
-        log_local "DEBUG_HASH: About to run: md5sum '$file_path' | awk '{print $1}'"
+        print_info "DEBUG_HASH: About to run: md5sum '$file_path' | awk '{print $1}'"
         hash=$(md5sum "$file_path" | awk '{print $1}')
     elif command -v md5 &> /dev/null; then
-        log_local "DEBUG_HASH: About to run: md5 -q '$file_path'"
+        print_info "DEBUG_HASH: About to run: md5 -q '$file_path'"
         hash=$(md5 -q "$file_path")
     else
-        log_error_local "Neither md5sum nor md5 command available"
+        print_error "Neither md5sum nor md5 command available"
         return 1
     fi
     
@@ -266,10 +245,10 @@ is_already_processed() {
     local file_path="$1"
     local file_hash
     
-    log_local "DEBUG_HASH: is_already_processed received file_path: '$file_path'"
+    print_info "DEBUG_HASH: is_already_processed received file_path: '$file_path'"
     file_hash=$(get_file_hash "$file_path")
     if [ $? -ne 0 ]; then
-        log_error_local "Failed to calculate hash for $file_path"
+        print_error "Failed to calculate hash for $file_path"
         return 1
     fi
     
@@ -286,10 +265,10 @@ mark_as_processed() {
     local status="$2"  # "SUCCESS" or "FAILED"
     local file_hash
     
-    log_local "DEBUG_HASH: mark_as_processed received file_path: '$file_path' (status: $status)"
+    print_info "DEBUG_HASH: mark_as_processed received file_path: '$file_path' (status: $status)"
     file_hash=$(get_file_hash "$file_path")
     if [ $? -ne 0 ]; then
-        log_error_local "Failed to calculate hash for marking: $file_path"
+        print_error "Failed to calculate hash for marking: $file_path"
         return 1
     fi
     
@@ -297,7 +276,7 @@ mark_as_processed() {
     local basename=$(basename "$file_path")
     
     echo "$file_hash|$timestamp|$status|$basename" >> "$PROCESSED_HISTORY_FILE"
-    log_local "Marked file as processed: $basename ($status)"
+    print_info "Marked file as processed: $basename ($status)"
 }
 
 # * Find Audio Files
@@ -342,28 +321,28 @@ process_file() {
     local basename=$(basename "$file_path")
     local base_name_no_ext="${basename%.*}"  # Remove extension to get base name
     local timestamp=$(date +%Y-%m-%d_%H%M%S)
-    local log_file="$LOGS_DIR/${timestamp}_${basename}.log"
+    local print_file="$LOGS_DIR/${timestamp}_${basename}.log"
     
-    log_local "Processing file: $basename"
+    print_info "Processing file: $basename"
     
     # Move all files with same base name to processing directory
     for related_file in "$INBOX_DIR/${base_name_no_ext}."*; do
         if [ -f "$related_file" ]; then
             local related_basename=$(basename "$related_file")
             mv "$related_file" "$PROCESSING_DIR/$related_basename"
-            log_local "Moved related file: $related_basename"
+            print_info "Moved related file: $related_basename"
         fi
     done
     
     local processing_file="$PROCESSING_DIR/$basename"
     if [ ! -f "$processing_file" ]; then
-        log_error_local "Failed to move primary file to processing directory: $basename"
+        print_error "Failed to move primary file to processing directory: $basename"
         # Attempt to move files back to inbox if primary file move failed.
         for related_file in "$PROCESSING_DIR/${base_name_no_ext}."*; do
             if [ -f "$related_file" ]; then
                 local related_basename=$(basename "$related_file")
                 mv "$related_file" "$INBOX_DIR/$related_basename"
-                log_warn_local "Moved back to inbox: $related_basename due to primary file move failure"
+                print_warning "Moved back to inbox: $related_basename due to primary file move failure"
             fi
         done
         return 1
@@ -403,8 +382,8 @@ process_file() {
         process_audio_cmd_array+=("$USER_SPECIFIED_TIMEOUT_MULTIPLIER")
     fi
     
-    log_local "Executing process_audio.sh for: $basename"
-    log_local "COMMAND (to be backgrounded): ${process_audio_cmd_array[*]}"
+    print_info "Executing process_audio.sh for: $basename"
+    print_info "COMMAND (to be backgrounded): ${process_audio_cmd_array[*]}"
 
     # Prepare a temporary file for process_audio.sh output
     local temp_process_output_file
@@ -418,7 +397,7 @@ process_file() {
     # The entire pipeline is backgrounded.
     (stdbuf -oL -eL "${process_audio_cmd_array[@]}" 2>&1 | tee "$temp_process_output_file" >&2) &
     CHILD_PID=$! # Capture child PID
-    log_local "process_audio.sh started with PID $CHILD_PID. Output being teed to $temp_process_output_file and terminal (stderr)."
+    print_info "process_audio.sh started with PID $CHILD_PID. Output being teed to $temp_process_output_file and terminal (stderr)."
 
     # Wait for the child to finish
     wait "$CHILD_PID"
@@ -427,13 +406,13 @@ process_file() {
 
     process_output=$(cat "$temp_process_output_file")
     # The output was already sent to terminal (stderr) by the backgrounded tee.
-    # Now, just append the captured process_output to the main queue_processor log file ($LOG_FILE).
+    # Now, just append the captured process_output to the main queue_processor log file ($print_FILE_PATH).
     if [ -n "$process_output" ]; then # Ensure process_output is not empty before printing
-        printf "%s\\n" "$process_output" >> "$LOG_FILE"
+        printf "%s\\n" "$process_output" >> "$print_FILE_PATH"
     fi
     rm -f "$temp_process_output_file"
     
-    log_local "process_audio.sh (PID formerly $CHILD_PID) completed with exit code: $process_exit_code"
+    print_info "process_audio.sh (PID formerly $CHILD_PID) completed with exit code: $process_exit_code"
 
     # Log the processing output details to its specific log file
     {
@@ -445,7 +424,7 @@ process_file() {
         echo "=== Process Output ==="
         echo "$process_output"
         echo "=== End of Log ==="
-    } > "$log_file"
+    } > "$print_file"
     
     # Handle success/failure - move all related files
     if [ $process_exit_code -eq 0 ]; then
@@ -454,7 +433,7 @@ process_file() {
             if [ -f "$related_file" ]; then
                 local related_basename=$(basename "$related_file")
                 mv "$related_file" "$COMPLETED_DIR/$related_basename"
-                log_local "Moved to completed: $related_basename"
+                print_info "Moved to completed: $related_basename"
             fi
         done
         
@@ -462,17 +441,17 @@ process_file() {
         local transcript_path_from_process_audio
         transcript_path_from_process_audio=$(echo "$process_output" | tail -n 1)
         
-        log_local "Successfully processed: $basename"
-        log_local "Transcript from process_audio.sh at: $transcript_path_from_process_audio"
+        print_info "Successfully processed: $basename"
+        print_info "Transcript from process_audio.sh at: $transcript_path_from_process_audio"
         
         # Copy transcript to completed folder with matching name
         if [ -f "$transcript_path_from_process_audio" ]; then
             local completed_transcript_in_queue_dir="$COMPLETED_DIR/${base_name_no_ext}.txt"
             
             if cp "$transcript_path_from_process_audio" "$completed_transcript_in_queue_dir"; then
-                log_local "Transcript copied to queue's completed folder: ${completed_transcript_in_queue_dir}"
+                print_info "Transcript copied to queue's completed folder: ${completed_transcript_in_queue_dir}"
             else
-                log_warn_local "Failed to copy transcript to queue's completed folder: $completed_transcript_in_queue_dir"
+                print_warning "Failed to copy transcript to queue's completed folder: $completed_transcript_in_queue_dir"
             fi
 
             # If cleanup of run logs is enabled, remove process_audio.sh's run directory
@@ -482,14 +461,14 @@ process_file() {
                 local process_audio_run_dir
                 process_audio_run_dir=$(dirname "$transcript_path_from_process_audio")
                 if [ -d "$process_audio_run_dir" ] && [[ "$process_audio_run_dir" == *"stentor_processing_runs"* ]]; then # Basic sanity check
-                    log_local "Cleanup: Removing process_audio.sh run directory: $process_audio_run_dir"
+                    print_info "Cleanup: Removing process_audio.sh run directory: $process_audio_run_dir"
                     rm -rf "$process_audio_run_dir"
                 else
-                    log_warn_local "Cleanup: Could not reliably determine or validate process_audio.sh run directory from transcript path: $transcript_path_from_process_audio. Directory not removed."
+                    print_warning "Cleanup: Could not reliably determine or validate process_audio.sh run directory from transcript path: $transcript_path_from_process_audio. Directory not removed."
                 fi
             fi
         else
-            log_warn_local "Transcript file from process_audio.sh not found at: $transcript_path_from_process_audio. Cannot copy or perform aggressive cleanup of its run directory."
+            print_warning "Transcript file from process_audio.sh not found at: $transcript_path_from_process_audio. Cannot copy or perform aggressive cleanup of its run directory."
         fi
         
         local completed_file="$COMPLETED_DIR/$basename"
@@ -499,22 +478,22 @@ process_file() {
         # This is the final step after a successful transcription and logging.
         if [ "${CLEANUP_ORIGINAL:-false}" = "true" ]; then
             if [ -f "$completed_file" ]; then
-                log_local "Cleanup: Deleting original processed audio file from completed directory: $completed_file"
+                print_info "Cleanup: Deleting original processed audio file from completed directory: $completed_file"
                 rm -f "$completed_file"
             else
-                log_warn_local "Cleanup: Could not find original audio file in completed directory to delete: $completed_file"
+                print_warning "Cleanup: Could not find original audio file in completed directory to delete: $completed_file"
             fi
         fi
 
         return 0
     elif [ $process_exit_code -eq 10 ]; then
         # Locked/Retry - move all related files back to inbox
-        log_warn_local "process_audio.sh was locked (exit code: 10). Moving files for $basename back to inbox for retry."
+        print_warning "process_audio.sh was locked (exit code: 10). Moving files for $basename back to inbox for retry."
         for related_file in "$PROCESSING_DIR/${base_name_no_ext}."*; do
             if [ -f "$related_file" ]; then
                 local related_basename=$(basename "$related_file")
                 mv "$related_file" "$INBOX_DIR/$related_basename"
-                log_local "Moved back to inbox for retry: $related_basename"
+                print_info "Moved back to inbox for retry: $related_basename"
             fi
         done
         # This is not a "failure" of the queue, so return a special code or handle as success for the queue's perspective
@@ -525,12 +504,12 @@ process_file() {
             if [ -f "$related_file" ]; then
                 local related_basename=$(basename "$related_file")
                 mv "$related_file" "$FAILED_DIR/$related_basename"
-                log_local "Moved to failed: $related_basename"
+                print_info "Moved to failed: $related_basename"
             fi
         done
         
-        log_error_local "Failed to process: $basename (exit code: $process_exit_code)"
-        log_error_local "Error output: $process_output"
+        print_error "Failed to process: $basename (exit code: $process_exit_code)"
+        print_error "Error output: $process_output"
         
         local failed_file="$FAILED_DIR/$basename"
         mark_as_processed "$failed_file" "FAILED"
@@ -540,12 +519,12 @@ process_file() {
 
 # Cleanup function for queue_processor.sh
 cleanup_queue_processor_and_child() {
-    log_local "Queue processor cleanup initiated (Signal: $?)..."
+    print_info "Queue processor cleanup initiated (Signal: $?)..."
 
     if [ -n "$CHILD_PID" ]; then
         # Check if the process actually exists
         if ps -p "$CHILD_PID" > /dev/null; then
-            log_local "Attempting to terminate child process $CHILD_PID (process_audio.sh) with SIGTERM..."
+            print_info "Attempting to terminate child process $CHILD_PID (process_audio.sh) with SIGTERM..."
             kill -TERM "$CHILD_PID" # Send SIGTERM to the child
             
             # Give the child a moment to clean up - increased to 60 seconds
@@ -554,11 +533,11 @@ cleanup_queue_processor_and_child() {
             while ps -p "$CHILD_PID" > /dev/null && [ "$counter" -lt "$wait_time" ]; do
                 sleep 1
                 counter=$((counter + 1))
-                log_local "Waiting for child $CHILD_PID to terminate... ($counter/$wait_time)"
+                print_info "Waiting for child $CHILD_PID to terminate... ($counter/$wait_time)"
             done
 
             if ps -p "$CHILD_PID" > /dev/null; then
-                log_warn_local "Child process $CHILD_PID did not terminate gracefully after $wait_time seconds. Sending SIGKILL."
+                print_warning "Child process $CHILD_PID did not terminate gracefully after $wait_time seconds. Sending SIGKILL."
                 kill -KILL "$CHILD_PID"
                 
                 # Safeguard: If we SIGKILLed it, and the process_audio.lock matches this CHILD_PID, remove it.
@@ -567,30 +546,30 @@ cleanup_queue_processor_and_child() {
                     local locked_pid
                     locked_pid=$(cat "$process_audio_lock_file" 2>/dev/null)
                     if [ "$locked_pid" = "$CHILD_PID" ]; then
-                        log_warn_local "Forcefully removed $process_audio_lock_file because child $CHILD_PID (which owned it) was SIGKILLed."
+                        print_warning "Forcefully removed $process_audio_lock_file because child $CHILD_PID (which owned it) was SIGKILLed."
                         rm -f "$process_audio_lock_file"
                     else
-                        log_local "Child $CHILD_PID was SIGKILLed, but $process_audio_lock_file PID ($locked_pid) does not match. Lock not removed by parent."
+                        print_info "Child $CHILD_PID was SIGKILLed, but $process_audio_lock_file PID ($locked_pid) does not match. Lock not removed by parent."
                     fi
                 fi
             else
-                log_local "Child process $CHILD_PID terminated gracefully."
+                print_info "Child process $CHILD_PID terminated gracefully."
             fi
         else
-            log_local "Child process $CHILD_PID no longer exists or was not started when cleanup initiated."
+            print_info "Child process $CHILD_PID no longer exists or was not started when cleanup initiated."
         fi
     fi
     CHILD_PID="" # Ensure it's cleared
 
     # Release queue_processor's own lock
     if [ "$LOCK_ACQUIRED_BY_THIS_PROCESS" = "true" ]; then
-        log_local "Releasing queue_processor.sh lock ($LOCK_FILE)."
+        print_info "Releasing queue_processor.sh lock ($LOCK_FILE)."
         rm -f "$LOCK_FILE"
         # LOCK_ACQUIRED_BY_THIS_PROCESS=false # Not strictly needed as script is exiting
     else
-        log_local "Queue_processor.sh lock ($LOCK_FILE) not acquired by this instance or already considered released."
+        print_info "Queue_processor.sh lock ($LOCK_FILE) not acquired by this instance or already considered released."
     fi
-    log_local "Queue processor cleanup finished."
+    print_info "Queue processor cleanup finished."
     # Standard exit trap will also call this, so ensure it's idempotent or careful.
     # If script exits due to 'set -e', $? will be the error code.
     # If due to signal, $? might be 128 + signal number.
@@ -609,8 +588,8 @@ main() {
     # The trap is now more comprehensive
     trap 'cleanup_queue_processor_and_child' EXIT INT TERM HUP QUIT
     
-    display_status_message " " "Starting: Queue Processor"
-    log_local "Command: $0 $*"
+    print_step "Starting: Queue Processor"
+    print_info "Command: $0 $*"
     
     # Parse command line arguments
     CLEANUP_WAV=false
@@ -631,31 +610,31 @@ main() {
                 CLEANUP_WAV=true
                 CLEANUP_LOGS=true
                 CLEANUP_ORIGINAL=true
-                log_local "Aggressive cleanup mode enabled (activates all cleanup options)"
+                print_info "Aggressive cleanup mode enabled (activates all cleanup options)"
                 shift # past argument
                 ;;
             --cleanup-wav-files)
                 CLEANUP_WAV=true
-                log_local "Cleanup of WAV files enabled"
+                print_info "Cleanup of WAV files enabled"
                 shift # past argument
                 ;;
             --cleanup-run-logs)
                 CLEANUP_LOGS=true
-                log_local "Cleanup of run logs enabled"
+                print_info "Cleanup of run logs enabled"
                 shift # past argument
                 ;;
             --cleanup-original-audio)
                 CLEANUP_ORIGINAL=true
-                log_local "Cleanup of original audio enabled"
+                print_info "Cleanup of original audio enabled"
                 shift # past argument
                 ;;
             --models)
                 if [[ -n "$2" && "$2" != --* ]]; then
                     USER_SPECIFIED_MODELS="$2"
-                    log_local "User specified Whisper models: $USER_SPECIFIED_MODELS"
+                    print_info "User specified Whisper models: $USER_SPECIFIED_MODELS"
                     shift 2 # past argument and value
                 else
-                    log_error_local "ERROR: --models option requires a non-empty argument."
+                    print_error "ERROR: --models option requires a non-empty argument."
                     # Optionally exit or handle error
                     shift # past argument if no value given or value looks like another option
                 fi
@@ -663,16 +642,16 @@ main() {
             --timeout-multiplier)
                 if [[ -n "$2" && "$2" != --* && "$2" =~ ^[0-9]+$ ]]; then # Basic check for integer
                     USER_SPECIFIED_TIMEOUT_MULTIPLIER="$2"
-                    log_local "User specified timeout multiplier: $USER_SPECIFIED_TIMEOUT_MULTIPLIER"
+                    print_info "User specified timeout multiplier: $USER_SPECIFIED_TIMEOUT_MULTIPLIER"
                     shift 2 # past argument and value
                 else
-                    log_error_local "ERROR: --timeout-multiplier option requires an integer argument."
+                    print_error "ERROR: --timeout-multiplier option requires an integer argument."
                     # Optionally exit or handle error
                     if [[ -n "$2" && "$2" != --* ]]; then shift 2; else shift; fi # try to shift past
                 fi
                 ;;
             *)
-                log_warn_local "Unknown argument: $key"
+                print_warning "Unknown argument: $key"
                 shift # past argument
                 ;;
         esac
@@ -680,8 +659,8 @@ main() {
     
     # Acquire lock
     if ! acquire_lock; then
-        log_info_local "Could not acquire lock, another instance is likely running. This is a normal exit."
-        display_status_message "i" "Info: Queue processor already running. Exiting."
+        print_info "Could not acquire lock, another instance is likely running. This is a normal exit."
+        print_info "Info: Queue processor already running. Exiting."
         exit 0
     fi
     
@@ -690,28 +669,28 @@ main() {
     
     # Check if process_audio.sh exists and is executable
     if [ ! -x "$PROCESS_AUDIO_SCRIPT" ]; then
-        log_error_local "process_audio.sh not found or not executable: $PROCESS_AUDIO_SCRIPT"
-        display_status_message "!" "Failed: process_audio.sh not found or not executable"
+        print_error "process_audio.sh not found or not executable: $PROCESS_AUDIO_SCRIPT"
+        print_error "Failed: process_audio.sh not found or not executable"
         exit 1
     fi
     
     # Find audio files in inbox
-    log_local "Scanning inbox for audio files..."
+    print_info "Scanning inbox for audio files..."
     local audio_files
     audio_files=$(find_audio_files "$INBOX_DIR")
     
     if [ -z "$audio_files" ]; then
-        log_local "No audio files found in inbox"
-        display_status_message "i" "Info: No audio files found in inbox"
+        print_info "No audio files found in inbox"
+        print_info "Info: No audio files found in inbox"
         exit 0
     fi
     
     local file_count
     file_count=$(echo "$audio_files" | wc -l)
-    log_local "Found $file_count audio file(s) in inbox"
+    print_info "Found $file_count audio file(s) in inbox"
     
     # DEBUG: List all found files
-    # log_local "DEBUG: Listing all found audio files:"
+    # print_info "DEBUG: Listing all found audio files:"
     # local file_index=1
     # while IFS= read -r file_path_debug; do 
     #     [ -z "$file_path_debug" ] && continue
@@ -721,7 +700,7 @@ main() {
     #     # if [ -f "$file_path_debug" ]; then 
     #     # file_size_debug=$(stat -c %s "$file_path_debug" 2>/dev/null || stat -f %z "$file_path_debug" 2>/dev/null || echo "unknown")
     #     # fi
-    #     # log_local "DEBUG: File $file_index: '$basename_debug' (size: $file_size_debug bytes) (full path: '$file_path_debug')"
+    #     # print_info "DEBUG: File $file_index: '$basename_debug' (size: $file_size_debug bytes) (full path: '$file_path_debug')"
     #     # file_index=$((file_index + 1))
     # done <<< "$audio_files" # This uses audio_files before the main loop logic might re-evaluate paths
 
@@ -735,20 +714,20 @@ main() {
         
         # Ensure we are working with a clean file path.
         # Attempt to remove the leading 'timestamp<literal \t>' part.
-        log_local "DEBUG_CLEANING: BEFORE strip: file_path_from_find is: '${file_path_from_find}'"
+        print_info "DEBUG_CLEANING: BEFORE strip: file_path_from_find is: '${file_path_from_find}'"
         local current_file_path
         # current_file_path="${file_path_from_find#*$'	'}" # Previous attempt, failed (looking for real TAB)
         # current_file_path=$(echo "$file_path_from_find" | sed 's/^[0-9]*\t//') # Previous sed attempt (real TAB)
         # current_file_path=$(echo "$file_path_from_find" | awk -F'\t' '{print $2}') # Previous awk attempt (looking for real TAB), resulted in empty string
         current_file_path=$(echo "$file_path_from_find" | awk -F'\\\\t' '{print $2}') # Target literal backslash-t
-        log_local "DEBUG_CLEANING: AFTER strip: current_file_path is: '${current_file_path}'"
+        print_info "DEBUG_CLEANING: AFTER strip: current_file_path is: '${current_file_path}'"
 
         local basename
         basename=$(basename "$current_file_path")
         
         # Check if already processed
         if is_already_processed "$current_file_path"; then
-            log_local "Skipping already processed file: $basename"
+            print_info "Skipping already processed file: $basename"
             # Move to completed directory to clear inbox
             # Ensure the path used for mv is the correct one
             if [ -f "$current_file_path" ]; then # Check if the source file actually exists
@@ -757,11 +736,11 @@ main() {
                  # If the current_file_path (which should be from inbox) doesn't exist,
                  # it might be that the input to the loop was just the basename or something unexpected.
                  # Try to move based on INBOX_DIR and basename as a fallback.
-                 log_warn_local "File '$current_file_path' not found directly. Attempting move from inbox: $INBOX_DIR/$basename"
+                 print_warning "File '$current_file_path' not found directly. Attempting move from inbox: $INBOX_DIR/$basename"
                  if [ -f "$INBOX_DIR/$basename" ]; then
                     mv "$INBOX_DIR/$basename" "$COMPLETED_DIR/"
                  else
-                    log_error_local "Could not find or move supposedly already processed file: $basename from $current_file_path or $INBOX_DIR/$basename"
+                    print_error "Could not find or move supposedly already processed file: $basename from $current_file_path or $INBOX_DIR/$basename"
                  fi
             fi
             continue
@@ -774,7 +753,7 @@ main() {
             # Check the exit code of the last command, which is process_file
             last_exit_code=$?
             if [ "$last_exit_code" -eq 10 ]; then
-                log_info_local "File processing for $basename will be retried; not counted as failure."
+                print_info "File processing for $basename will be retried; not counted as failure."
                 # Not incrementing failure_count for retryable lock issues
             else
                 failure_count=$((failure_count + 1))
@@ -785,12 +764,12 @@ main() {
         
         # Only process one file per run to avoid long-running processes
         # # TODO: remove this once we have a more efficient way to process files
-        # log_info_local "Processed 1 file this run. Exiting to allow next cron cycle."
+        # print_info "Processed 1 file this run. Exiting to allow next cron cycle."
         # break
         
     done <<< "$audio_files"
     
-    display_status_message "x" "Completed: Queue Processor ($processed_count processed, $success_count success, $failure_count failed)"
+    print_success "Completed: Queue Processor ($processed_count processed, $success_count success, $failure_count failed)"
 }
 
 # * Script Entry Point

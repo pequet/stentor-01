@@ -7,6 +7,45 @@ summary: A reverse-chronological log detailing session activities, technical dec
 ---
 # Development Log
 
+## Session Ending 2025-07-29
+
+**Focus:** Homogenizing logging and messaging utilities across the entire codebase and creating a client-side installer.
+
+**Key Activities & Outcomes:**
+
+1.  **Utility Script Refactoring:**
+    *   **Goal:** Standardize how all scripts handle logging and user messages.
+    *   **Action:**
+        *   Created `scripts/utils/logging_utils.sh` to centralize logging functions.
+        *   Refactored `scripts/utils/messaging_utils.sh` to use the new logging utility, ensuring consistent output formatting (colors, prefixes).
+        *   Updated all client-side and server-side scripts to source and use the new utility scripts.
+    *   **Impact:** All scripts now have a unified, consistent, and easily maintainable way of presenting information to the user.
+
+2.  **Client-Side Installer:**
+    *   **Goal:** Simplify the setup process for the client-side components of Stentor.
+    *   **Action:** Created a new `install.sh` script that:
+        *   Checks for and helps install dependencies like `yt-dlp`.
+        *   Sets up the necessary configuration directory (`~/.stentor`).
+        *   Copies client-side scripts to a local bin directory for easy execution.
+    *   **Impact:** Significantly improves the user onboarding experience for the client-side tools.
+
+3.  **Testing & Verification:**
+    *   The refactored client-side scripts (`periodic_harvester.sh`, `download_to_stentor.sh`, etc.) and the new `install.sh` have been tested and are confirmed to be working correctly.
+    *   **Concern:** The server-side scripts (`queue_processor.sh`, `process_audio.sh`) have *not* been tested since the utility refactoring. While they are expected to work, their operational status is unverified. The production droplet is unaffected as it's running the previous, stable version of the scripts.
+
+**Key Learnings & Decisions:**
+*   Centralizing common utilities like logging is critical for maintainability and consistency in a multi-script project.
+*   A dedicated installer script is a major usability improvement for any system with client-side components.
+
+**System State:**
+*   Client-side scripts are updated, tested, and have a new installer.
+*   Server-side scripts have been updated but are untested.
+*   The production environment on the Stentor droplet remains stable and isolated from these recent changes.
+
+**Next Steps:**
+*   Deploy the updated server-side scripts to a staging environment (or the droplet itself, accepting the risk).
+*   Thoroughly test the server-side audio processing pipeline to ensure the refactored logging/messaging utilities have not introduced any regressions.
+
 ## Session Ending 2025-06-05
 
 **Focus:** Improving script robustness and user experience by refining lock-handling logic and command-line interfaces.

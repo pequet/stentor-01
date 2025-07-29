@@ -10,12 +10,23 @@ set -o pipefail
 # Project: https://github.com/pequet/stentor-01/ 
 # Refer to main project for detailed docs and dependencies (sshfs, macFUSE for macOS).
 
-# * Source Utilities
-source "$(dirname "$0")/../utils/messaging_utils.sh"
+# --- Source Utilities ---
+# Resolve the true directory of this script, even if it's a symlink.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # Resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # If $SOURCE was a relative symlink, resolve it relative to the symlink's path
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+source "${SCRIPT_DIR}/../utils/logging_utils.sh"
+source "${SCRIPT_DIR}/../utils/messaging_utils.sh"
+
+# Set log file path for the logging utility
+LOG_FILE_PATH="$HOME/.stentor/logs/mount_droplet_yt.log"
 
 # * Configuration Loading
 # Determine the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 PROJECT_ENV_FILE="$SCRIPT_DIR/stentor.conf"
 HOME_STENTOR_DIR="$HOME/.stentor"
 HOME_ENV_FILE="$HOME_STENTOR_DIR/stentor.conf"
@@ -60,18 +71,18 @@ if [ -f "$PROJECT_ENV_FILE" ]; then
     # shellcheck source=./stentor.conf
     source "$PROJECT_ENV_FILE"
     CONFIG_SOURCED=true
-    echo "Loaded configuration from $PROJECT_ENV_FILE"
+    print_info "Loaded configuration from $PROJECT_ENV_FILE"
 # Else, try to source from $HOME/.stentor/stentor.conf
 elif [ -f "$HOME_ENV_FILE" ]; then
     # shellcheck source=~/.stentor/stentor.conf
     source "$HOME_ENV_FILE"
     CONFIG_SOURCED=true
-    echo "Loaded configuration from $HOME_ENV_FILE"
+    print_info "Loaded configuration from $HOME_ENV_FILE"
 else
-    echo "Error: Configuration file not found." >&2
-    echo "Please create either $PROJECT_ENV_FILE" >&2
-    echo "OR $HOME_ENV_FILE (you might need to create $HOME_STENTOR_DIR first)." >&2
-    echo "You can copy scripts/client-side/stentor_clientstentor.conf.example to one of these locations and populate it." >&2
+    print_error "Configuration file not found." >&2
+    print_error "Please create either $PROJECT_ENV_FILE" >&2
+    print_error "OR $HOME_ENV_FILE (you might need to create $HOME_STENTOR_DIR first)." >&2
+    print_error "You can copy scripts/client-side/stentor_clientstentor.conf.example to one of these locations and populate it." >&2
     exit 1
 fi
 
@@ -80,31 +91,31 @@ REQUIRED_VARS=("STENTOR_REMOTE_USER" "STENTOR_REMOTE_HOST" "STENTOR_REMOTE_AUDIO
 missing_vars=0
 for var_name in "${REQUIRED_VARS[@]}"; do
     if [ -z "${!var_name:-}" ]; then # Check if var is unset or empty
-        echo "Error: Required variable '$var_name' is not set in the sourced stentor.conf file." >&2
+        print_error "Error: Required variable '$var_name' is not set in the sourced stentor.conf file." >&2
         missing_vars=1
     fi
 done
 
 if [ "$missing_vars" -eq 1 ]; then
-    echo "Please ensure all required variables are set in your stentor.conf file." >&2
+    print_error "Please ensure all required variables are set in your stentor.conf file." >&2
     exit 1
 fi
 
 # Ensure local mount point directory exists
 if [ ! -d "$LOCAL_MOUNT_POINT" ]; then
-    echo "Local mount point '$LOCAL_MOUNT_POINT' does not exist." >&2
-    echo "Attempting to create it..." >&2
+    print_info "Local mount point '$LOCAL_MOUNT_POINT' does not exist." >&2
+    print_info "Attempting to create it..." >&2
     # Expand tilde if present in LOCAL_MOUNT_POINT
     eval EXPANDED_LOCAL_MOUNT_POINT="$LOCAL_MOUNT_POINT"
     mkdir -p "$EXPANDED_LOCAL_MOUNT_POINT"
     if [ $? -ne 0 ]; then
-        echo "Error: Failed to create local mount point '$EXPANDED_LOCAL_MOUNT_POINT'. Please create it manually." >&2
+        print_error "Failed to create local mount point '$EXPANDED_LOCAL_MOUNT_POINT'. Please create it manually." >&2
         exit 1
     fi
     
     # Add a README to the newly created mount point directory for clarity
     INFO_FILE_PATH="$EXPANDED_LOCAL_MOUNT_POINT/README.md"
-    echo "Adding README file to newly created mount point directory: $INFO_FILE_PATH" >&2
+    print_info "Adding README file to newly created mount point directory: $INFO_FILE_PATH" >&2
     cat > "$INFO_FILE_PATH" << 'EOF_INFO_MOUNT'
 # Stentor Droplet Local Mount Point Information
 
@@ -117,10 +128,10 @@ When this script successfully mounts the remote SSHFS volume here, you will see 
 This README is placed here by `mount_droplet_yt.sh` to provide context if you find this directory empty or unmounted.
 EOF_INFO_MOUNT
     if [ $? -ne 0 ]; then
-        echo "Warning: Failed to create README file '$INFO_FILE_PATH' in the new mount point directory. Continuing without it." >&2
+        print_warning "Failed to create README file '$INFO_FILE_PATH' in the new mount point directory. Continuing without it." >&2
     fi
     
-    echo "Successfully created local mount point '$EXPANDED_LOCAL_MOUNT_POINT'." >&2
+    print_info "Successfully created local mount point '$EXPANDED_LOCAL_MOUNT_POINT'." >&2
 fi
 
 # * Mount Logic
@@ -128,7 +139,7 @@ fi
 # Expand tilde for grep query as well, if necessary for consistency, though mount output is usually absolute.
 eval EXPANDED_LOCAL_MOUNT_POINT_FOR_GREP="$LOCAL_MOUNT_POINT"
 if mount | grep -q "$EXPANDED_LOCAL_MOUNT_POINT_FOR_GREP"; then
-    display_status_message "i" "Already mounted at $EXPANDED_LOCAL_MOUNT_POINT_FOR_GREP. Nothing to do."
+    print_info "Already mounted at $EXPANDED_LOCAL_MOUNT_POINT_FOR_GREP. Nothing to do."
     exit 0
 fi
 
@@ -139,13 +150,13 @@ if [ -n "${STENTOR_VOLUME_NAME:-}" ]; then
 else
     VOL_NAME="Stentor Inbox"
 fi
-echo "Info: Using volume name: '$VOL_NAME'" >&2
+print_info "Using volume name: '$VOL_NAME'" >&2
 
 SSHFS_OPTS="reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,default_permissions,volname=${VOL_NAME}"
 
 # Handle optional STENTOR_SSH_KEY_PATH
 if [ -n "${STENTOR_SSH_KEY_PATH:-}" ] && [ -f "${STENTOR_SSH_KEY_PATH}" ]; then # Check if var set and file exists
-    echo "Using SSH key: $STENTOR_SSH_KEY_PATH"
+    print_info "Using SSH key: $STENTOR_SSH_KEY_PATH"
     SSHFS_OPTS="IdentityFile=${STENTOR_SSH_KEY_PATH},$SSHFS_OPTS"
 fi
 
@@ -157,7 +168,7 @@ CMD_REMOTE_PATH="$STENTOR_REMOTE_AUDIO_INBOX_DIR"
 # as relative to the remote user's home directory.
 # If the path is just "~", change it to "." to represent the home directory.
 if [[ "$CMD_REMOTE_PATH" == "~/"* ]]; then
-    echo "Info: Remote path starts with '~/', using path relative to home: ${CMD_REMOTE_PATH#\~/}" >&2
+    print_info "Remote path starts with '~/', using path relative to home: ${CMD_REMOTE_PATH#\~/}" >&2
     CMD_REMOTE_PATH="${CMD_REMOTE_PATH#\~/}"
 elif [[ "$CMD_REMOTE_PATH" == "~" ]]; then
     # echo "Info: Remote path is '~', mounting remote home directory itself." >&2
@@ -168,13 +179,13 @@ fi
 eval EXPANDED_LOCAL_MOUNT_POINT_CMD="$LOCAL_MOUNT_POINT" # This is for the LOCAL mount point
 
 # echo "Attempting to mount remote path: '${CMD_REMOTE_PATH}' (from original: '${STENTOR_REMOTE_AUDIO_INBOX_DIR}')" >&2
-display_status_message " " "Attempting to mount: ${STENTOR_REMOTE_USER}@${STENTOR_REMOTE_HOST}:${CMD_REMOTE_PATH} to ${EXPANDED_LOCAL_MOUNT_POINT_CMD}" # Added start message
+print_step "Attempting to mount: ${STENTOR_REMOTE_USER}@${STENTOR_REMOTE_HOST}:${CMD_REMOTE_PATH} to ${EXPANDED_LOCAL_MOUNT_POINT_CMD}" # Added start message
 sshfs "${STENTOR_REMOTE_USER}@${STENTOR_REMOTE_HOST}:${CMD_REMOTE_PATH}" "${EXPANDED_LOCAL_MOUNT_POINT_CMD}" -o "$SSHFS_OPTS"
 
 if [ $? -eq 0 ]; then
-    display_status_message "x" "Successfully mounted: ${STENTOR_REMOTE_USER}@${STENTOR_REMOTE_HOST}:${CMD_REMOTE_PATH} to ${EXPANDED_LOCAL_MOUNT_POINT_CMD}"
+    print_success "Successfully mounted: ${STENTOR_REMOTE_USER}@${STENTOR_REMOTE_HOST}:${CMD_REMOTE_PATH} to ${EXPANDED_LOCAL_MOUNT_POINT_CMD}"
 else
-    display_status_message "!" "Error: sshfs mount failed for ${EXPANDED_LOCAL_MOUNT_POINT_CMD}"
+    print_error "Error: sshfs mount failed for ${EXPANDED_LOCAL_MOUNT_POINT_CMD}"
     echo "Troubleshooting tips:" >&2
     echo "  1. For macOS: Ensure both macFUSE and SSHFS are installed from https://macfuse.github.io/" >&2
     echo "     Install macFUSE first, reboot, then install SSHFS." >&2

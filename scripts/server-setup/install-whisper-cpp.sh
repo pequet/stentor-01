@@ -38,20 +38,33 @@ set -o pipefail
 #   - Buy Me a Coffee: https://buymeacoffee.com/pequet
 #   - GitHub Sponsors: https://github.com/sponsors/pequet
 
-# * Source Utilities
-source "$(dirname "$0")/../utils/messaging_utils.sh"
+# --- Source Utilities ---
+# Resolve the true directory of this script, even if it's a symlink.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # Resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # If $SOURCE was a relative symlink, resolve it relative to the symlink's path
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+source "${SCRIPT_DIR}/../utils/logging_utils.sh"
+source "${SCRIPT_DIR}/../utils/messaging_utils.sh"
+
+# Set log file path for the logging utility
+# This script is typically run with sudo, so we log to a system-wide location.
+LOG_FILE_PATH="/var/log/stentor_install_whisper_cpp.log"
 
 # * Initial Setup
-display_status_message " " "Starting: Whisper.cpp Installation Script"
+print_step "Starting: Whisper.cpp Installation Script"
 
 # ** Update System and Install Dependencies
-display_status_message "i" "Info: Updating system packages and installing dependencies..."
+print_info "Info: Updating system packages and installing dependencies..."
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y ffmpeg build-essential git pkg-config cmake wget
 echo "INFO: Dependencies installed successfully."
 
 # ** Clone the Whisper.cpp Repository
-display_status_message "i" "Info: Cloning Whisper.cpp repository..."
+print_info "Info: Cloning Whisper.cpp repository..."
 mkdir -p ~/src
 cd ~/src
 
@@ -66,7 +79,7 @@ fi
 echo "INFO: Whisper.cpp repository cloned/updated successfully."
 
 # ** Compile Whisper.cpp
-display_status_message "i" "Info: Compiling Whisper.cpp..."
+print_info "Info: Compiling Whisper.cpp..."
 make -j$(nproc) > ~/whisper_compilation_log.txt 2>&1 # Compile and log all output
 echo "INFO: Whisper.cpp compilation attempt finished. Check ~/whisper_compilation_log.txt for details."
 
@@ -74,12 +87,12 @@ echo "INFO: Whisper.cpp compilation attempt finished. Check ~/whisper_compilatio
 if [ -f ./build/bin/main ]; then
     echo "INFO: Main executable successfully created at: ./build/bin/main"
 else
-    display_status_message "!" "Failed: Whisper.cpp main executable NOT created. Review ~/whisper_compilation_log.txt"
+    print_error "Failed: Whisper.cpp main executable NOT created. Review ~/whisper_compilation_log.txt"
 fi
 
 # ** Download a Default Whisper Model
 DEFAULT_MODEL="tiny.en"
-display_status_message "i" "Info: Navigating to models directory to download default model ($DEFAULT_MODEL)..."
+print_info "Info: Navigating to models directory to download default model ($DEFAULT_MODEL)..."
 cd models
 
 echo "INFO: Downloading default model: $DEFAULT_MODEL..."
@@ -87,11 +100,11 @@ bash ./download-ggml-model.sh "$DEFAULT_MODEL"
 if [ -f "ggml-$DEFAULT_MODEL.bin" ]; then
   echo "INFO: Default model ($DEFAULT_MODEL) downloaded successfully."
 else
-  display_status_message "!" "Failed: Could not download default model ($DEFAULT_MODEL). Check output."
+  print_error "Failed: Could not download default model ($DEFAULT_MODEL). Check output."
 fi
 
 # ** List Available Models
-display_status_message "i" "Info: Listing all available GGML models for manual download:"
+print_info "Info: Listing all available GGML models for manual download:"
 echo "--------------------------------------------------------------------"
 bash ./download-ggml-model.sh || true # List models; continue if this command exits non-zero
 echo "--------------------------------------------------------------------"
@@ -102,10 +115,10 @@ echo "--------------------------------------------------------------------"
 cd ~/src/whisper.cpp # Return to whisper.cpp root
 
 if [ -f ./build/bin/main ]; then
-  display_status_message "x" "Completed: Whisper.cpp installation and default model download."
+  print_success "Completed: Whisper.cpp installation and default model download."
   echo "The main executable is at: $(pwd)/build/bin/main"
 else
-  display_status_message "!" "Completed with ERRORS: Whisper.cpp installation failed (main executable not found)."
+  print_error "Completed with ERRORS: Whisper.cpp installation failed (main executable not found)."
 fi
 echo "Models are in: $(pwd)/models"
 echo "--------------------------------------------------------------------"
