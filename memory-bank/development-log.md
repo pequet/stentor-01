@@ -1,7 +1,7 @@
 ---
 type: log
 domain: system-state
-subject: Stentor-01
+subject: Stentor
 status: active
 summary: A reverse-chronological log detailing session activities, technical decisions, key learnings, and bug resolutions throughout the development of the Stentor audio processing pipeline.
 ---

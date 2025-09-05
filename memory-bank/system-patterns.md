@@ -1,7 +1,7 @@
 ---
 type: overview
 domain: system-state
-subject: Stentor-01
+subject: Stentor
 status: active
 summary: Documents the recurring technical and workflow patterns for the Stentor project, including environment setup, software components, security standards, and deployment strategies.
 ---

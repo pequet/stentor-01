@@ -1,7 +1,7 @@
 ---
 type: guide
 domain: methods
-subject: Stentor-01
+subject: Stentor
 status: draft
 summary: "A comprehensive guide to the server-side workflow for Stentor, including manual operation with tmux, automation with cron, and maintenance procedures."
 ---

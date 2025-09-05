@@ -1,7 +1,7 @@
 ---
 type: overview
 domain: system-state
-subject: Stentor-01
+subject: Stentor
 status: active
 summary: Provides a high-level overview of the project's status, noting that a major refactor has been completed, and the project is now in a verification phase focused on testing server-side scripts before resuming release preparations.
 ---

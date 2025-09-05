@@ -1,7 +1,7 @@
 ---
 type: overview
 domain: system-state
-subject: Stentor-01
+subject: Stentor
 status: active
 summary: Specifies the core technology stack for the Stentor project, including server infrastructure, audio processing tools (Whisper.cpp, FFmpeg), and file transfer methods (sshfs), along with technical constraints.
 ---

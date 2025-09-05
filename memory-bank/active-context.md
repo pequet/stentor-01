@@ -1,7 +1,7 @@
 ---
 type: overview
 domain: system-state
-subject: Stentor-01
+subject: Stentor
 status: active
 summary: Captures the immediate work focus on verifying server-side scripts after a major refactor, while noting that the previously planned public release is temporarily on hold pending this validation.
 ---

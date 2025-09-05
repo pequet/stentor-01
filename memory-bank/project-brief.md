@@ -1,7 +1,7 @@
 ---
 type: overview
 domain: system-state
-subject: Stentor-01
+subject: Stentor
 status: active
 summary: A concise, one-sentence project goal: to establish a well-documented, dedicated DigitalOcean droplet for an audio transcription pipeline using Whisper.cpp and Vibe Tools.
 ---
