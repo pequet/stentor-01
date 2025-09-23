@@ -63,6 +63,57 @@ To install and start the automated harvester on your local machine:
 ```
 This will set up a `launchd` agent that runs the `periodic_harvester.sh` script every 3 hours.
 
+## System Health Check
+
+<details>
+<summary>🩺 Quick Health Check Commands</summary>
+<br />
+
+Use these commands to check if your Stentor system is running properly and view transcripts:
+
+> **Check Automation Status**
+> ```bash
+> # Verify if Stentor agents are running
+> launchctl list | grep stentor
+>
+> # Check recent automation activity
+> tail -20 /tmp/com.pequet.stentor.periodic.hourly_sources.out
+> ```
+
+> **Access Transcripts on Droplet**
+> ```bash
+> # Mount droplet (uses saved SSH credentials)
+> cd "Projects/Curiosities Cabinet/curiosities-cabinet/Views/Public Repositories/Stentor/stentor-01"
+> ./scripts/client-side/mount_droplet_yt.sh
+>
+> # Count completed transcripts
+> ls ~/stentor_droplet_mount/completed/ | grep "\.txt$" | wc -l
+>
+> # Browse transcript files
+> ls ~/stentor_droplet_mount/completed/ | grep "\.txt$"
+>
+> # Read a specific transcript
+> cat "~/stentor_droplet_mount/completed/[FILENAME].txt"
+>
+> # Unmount when done
+> ./scripts/client-side/unmount_droplet_yt.sh
+> ```
+
+> **Connection Details (from ~/.stentor/stentor.conf)**
+> - **User:** khbeqrsuofepgvew
+> - **Host:** 104.131.181.228
+> - **Remote Path:** ~/stentor_harvesting/
+> - **Mount Point:** ~/stentor_droplet_mount/
+
+> **What Each Directory Contains:**
+> - `completed/` - Finished transcripts (.txt files) and metadata
+> - `processing/` - Files currently being transcribed
+> - `inbox/` - New downloads waiting for processing
+> - `failed/` - Files that couldn't be processed
+> - `logs/` - Server-side processing logs
+
+</details>
+
 ## Quick Commands / Cheat Sheet
 
 The following commands are for operating the Stentor system after it has been fully installed and configured as per the documentation.

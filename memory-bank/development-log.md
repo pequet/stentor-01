@@ -7,6 +7,55 @@ summary: A reverse-chronological log detailing session activities, technical dec
 ---
 # Development Log
 
+## Session Ending 2025-09-23
+
+**Focus:** Debugging apparent system failure that turned out to be working correctly, plus critical playlist processing improvement.
+
+**Key Activities & Outcomes:**
+
+1. **System Status Investigation:**
+   * **Trigger:** Local logs suggested no successful downloads for ~2 months with "Failed to download" errors
+   * **Investigation Process:** 
+     - Examined local logs showing script failures
+     - Tested manual script execution (initially showed rsync errors)
+     - Traced execution with bash -x debugging
+   * **Reality Check:** System was actually working perfectly
+     - `processed_files.txt` showed regular weekly processing (Sep 22, 15, 8, 1, Aug 25, etc.)
+     - Fresh files appearing in droplet inbox with current timestamps
+     - Download archive showing recent successful activity
+   * **Root Cause of Confusion:** Local vs. remote logging disconnect, temporary network/mount issues during testing
+
+2. **Critical Playlist Processing Bug Fix:**
+   * **Problem Identified:** Playlist processing would exit completely on first already-downloaded video
+   * **Code Change:** Removed the `--break-on-existing` flag from yt-dlp command (line 623 in download_to_stentor.sh)
+   * **Impact:** 
+     - Previous: yt-dlp would stop processing playlist after encountering first already-downloaded video
+     - Fixed: yt-dlp now processes entire playlist, skipping known videos but continuing with remaining ones
+     - Trade-off: More API calls but ensures no missed content in non-chronological playlists
+
+3. **System Architecture Validation:**
+   * **Confirmed:** launchd scheduled jobs running correctly
+   * **Confirmed:** SSHFS mounting working reliably  
+   * **Confirmed:** yt-dlp processing and archive management functional
+   * **Current Status:** ~10+ videos queued in inbox for processing
+
+**Key Learnings & Decisions:**
+* Always verify remote system state before assuming local logs tell the full story
+* Playlist processing assumptions about chronological order were incorrect and caused missed content
+* System resilience was higher than expected - continued operating despite perceived issues
+* Need better monitoring/visibility into remote processing status
+
+**System State:**
+* Fully operational with improved playlist processing logic
+* Regular automated harvesting confirmed working for months
+* Recent Master Prompt Method video batch successfully queued
+* No actual downtime or system failure occurred
+
+**Next Steps:**
+* Monitor playlist processing improvement over next few cycles
+* Consider adding remote status check script for easier troubleshooting
+* Document location of key files (archive on droplet, not local) for future reference
+
 ## Session Ending 2025-07-29
 
 **Focus:** Homogenizing logging and messaging utilities across the entire codebase and creating a client-side installer.

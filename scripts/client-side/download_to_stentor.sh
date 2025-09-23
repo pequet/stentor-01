@@ -150,7 +150,7 @@ acquire_lock() {
         local pid_check_command_exit_code
         if [[ -n "$lock_pid" ]]; then
             log_debug "DEBUG: Preparing to check PID $lock_pid with 'kill -0 $lock_pid'"
-            kill -0 "$lock_pid" 2>/dev/null
+            kill -0 "$lock_pid" 2>/dev/null || true  # Prevent set -e from exiting
             pid_check_command_exit_code=$?
             log_debug "DEBUG: 'kill -0 $lock_pid' exit code: $pid_check_command_exit_code"
         else
