@@ -6,7 +6,7 @@ set -u
 set -o pipefail
 
 # ██ ██   Stentor: Download YouTube Videos to Stentor
-# █ ███   Version: 1.1.0
+# █ ███   Version: 1.2.0
 # ██ ██   Author: Benjamin Pequet
 # █ ███   GitHub: https://github.com/pequet/stentor-01/
 #
@@ -41,6 +41,9 @@ set -o pipefail
 #   -B, --use-break-on-existing Optional. If set, yt-dlp will stop downloading a playlist as soon
 #                             as it encounters an item already in the download archive.
 #                             Useful for frequent runs on long, mostly static playlists.
+#   -p, --playlist-batch-size N  Limit playlist downloads to N videos per run. Default downloads all.
+#                             This allows processing large playlists incrementally across multiple runs.
+#                             Combined with download archive, ensures no re-downloads while making progress.
 #   -h, --help             Display this help message and exit.
 #
 # Dependencies:
@@ -51,6 +54,7 @@ set -o pipefail
 #   - Standard Unix utilities: date, cat, stat, kill, rm, mkdir, mount, sleep.
 #
 # Changelog:
+#   1.2.0 - 2025-09-29 - Added playlist batch size option (-p) for incremental playlist processing.
 #   1.1.0 - 2025-07-29 - Added logging and messaging utilities.
 #   1.0.0 - 2025-05-25 - Initial release with download, mount management, and metadata capabilities.
 #
@@ -99,6 +103,8 @@ FINAL_DESTINATION_DIR=""
 LOCAL_MOUNT_POINT="" # Will be loaded from stentor.conf
 SCRIPT_PERFORMED_MOUNT=false
 YT_DLP_USE_BREAK_ON_EXISTING=false # New flag variable
+PLAYLIST_BATCH_SIZE="10" # Number of videos to download per playlist per run (default: 10)
+DOWNLOAD_PROCESSING_STARTED=false # Track if we've started any actual download work
 
 MOUNT_SCRIPT="$SCRIPT_DIR/mount_droplet_yt.sh"
 UNMOUNT_SCRIPT="$SCRIPT_DIR/unmount_droplet_yt.sh"
@@ -201,6 +207,14 @@ release_lock() {
 # * Cleanup Function
 cleanup() {
     local last_exit_status="$?" 
+    
+    # If no download processing was started, do minimal silent cleanup
+    if [ "$DOWNLOAD_PROCESSING_STARTED" != "true" ]; then
+        release_lock
+        return 0
+    fi
+    
+    # Only show verbose cleanup messages if we actually started download processing
     print_info "Info: Executing cleanup routine (Exit status: $last_exit_status)"
     release_lock
 
@@ -237,8 +251,6 @@ cleanup() {
         else
             log_error "Cleanup: Failed to remove temporary directory $CURRENT_URL_TEMP_DIR. Manual check may be needed."
         fi
-    else
-        print_info "Cleanup: CURRENT_URL_TEMP_DIR ('${CURRENT_URL_TEMP_DIR:-}') not set or not a directory during cleanup. No specific URL temp dir operations."
     fi
 
     if [ "$SCRIPT_PERFORMED_MOUNT" = true ]; then
@@ -265,24 +277,7 @@ cleanup() {
         else
             log_error "Unmount script '$UNMOUNT_SCRIPT' not found or not executable. Cannot unmount automatically."
         fi
-    else
-        print_info "Script did not perform mount, or mount point not specified for unmount. No unmount action taken by script."
     fi
-
-    # # Aggressively cleanup the base local temporary directory if it was defined and exists
-    # if [ -n "${LOCAL_TEMP_BASE_DIR:-}" ] && [ -d "$LOCAL_TEMP_BASE_DIR" ]; then
-    #     print_info "Aggressively cleaning up base local temporary directory: $LOCAL_TEMP_BASE_DIR"
-    #     rm -rf "$LOCAL_TEMP_BASE_DIR"
-    #     if [ $? -eq 0 ]; then
-    #         print_info "Successfully removed base local temporary directory: $LOCAL_TEMP_BASE_DIR"
-    #     else
-    #         # This error primarily matters for manual inspection if the script was failing to create it initially.
-    #         # If the script ran, individual CURRENT_URL_TEMP_DIRs should be handled by the loop.
-    #         log_error "Failed to remove base local temporary directory: $LOCAL_TEMP_BASE_DIR. It might have already been removed or there was an issue."
-    #     fi
-    # else
-    #     print_info "Base local temporary directory '$LOCAL_TEMP_BASE_DIR' was not defined or does not exist. No cleanup needed for it."
-    # fi
 
     print_info "Cleanup routine finished."
 }
@@ -319,6 +314,10 @@ Options:
   -B, --use-break-on-existing Optional. If set, yt-dlp will stop downloading a playlist as soon
                              as it encounters an item already in the download archive.
                              Useful for frequent runs on long, mostly static playlists.
+  -p, --playlist-batch-size N  Limit playlist downloads to N videos per run. Default is 10.
+                             This allows processing large playlists incrementally across multiple runs.
+                             Combined with download archive, ensures no re-downloads while making progress.
+                             Use 0 or "all" to download entire playlists (original behavior).
   -h, --help             Display this help message and exit.
 
 Dependencies:
@@ -333,7 +332,10 @@ Lock File:
 
 Example:
   $0 https://www.youtube.com/watch?v=dQw4w9WgXcQ
-  $0 -d /my/local/music/ https://www.youtube.com/playlist?list=PL.....
+  $0 https://www.youtube.com/playlist?list=PL..... # Downloads 10 videos by default
+  $0 -p 5 https://www.youtube.com/playlist?list=PL..... # Download only 5 videos per run
+  $0 -p all https://www.youtube.com/playlist?list=PL..... # Download entire playlist
+  $0 -p 5 -B https://www.youtube.com/playlist?list=PL..... # 5 videos per run, stop at existing
 
 Exit Codes:
   0: Success
@@ -351,6 +353,7 @@ parse_arguments() {
     DOWNLOAD_URLS=() # Reset for safety if called multiple times (though not planned)
     DESTINATION_OVERRIDE=""
     YT_DLP_USE_BREAK_ON_EXISTING=false # Ensure reset if function were re-called
+    PLAYLIST_BATCH_SIZE="10" # Ensure reset to default if function were re-called
 
     while [[ "$#" -gt 0 ]]; do
         case $1 in
@@ -365,6 +368,23 @@ parse_arguments() {
                 ;;
             -B|--use-break-on-existing)
                 YT_DLP_USE_BREAK_ON_EXISTING=true
+                ;;
+            -p|--playlist-batch-size)
+                if [ -n "$2" ]; then
+                    if [ "$2" = "all" ] || [ "$2" = "0" ]; then
+                        PLAYLIST_BATCH_SIZE=""
+                        shift
+                    elif [[ "$2" =~ ^[0-9]+$ ]] && [ "$2" -gt 0 ]; then
+                        PLAYLIST_BATCH_SIZE="$2"
+                        shift
+                    else
+                        print_error "--playlist-batch-size option requires a positive integer, 0, or 'all'."
+                        usage
+                    fi
+                else
+                    print_error "--playlist-batch-size option requires a value."
+                    usage
+                fi
                 ;;
             -h|--help)
                 usage
@@ -557,6 +577,7 @@ main() {
 
     # 7. yt-dlp Execution Loop
     print_info "Starting download process with yt-dlp..."
+    DOWNLOAD_PROCESSING_STARTED=true # Mark that we've started actual download work
     
     # Target the inbox subdirectory within the destination directory (this is the REMOTE inbox)
     REMOTE_INBOX_DIR="$FINAL_DESTINATION_DIR/inbox"
@@ -621,6 +642,11 @@ main() {
         if [ "$YT_DLP_USE_BREAK_ON_EXISTING" = true ]; then
             print_info "Optional flag --use-break-on-existing is active. Adding to yt-dlp command."
             yt_dlp_cmd+=(--break-on-existing)
+        fi
+
+        if [ -n "$PLAYLIST_BATCH_SIZE" ]; then
+            print_info "Playlist batch size limit active: $PLAYLIST_BATCH_SIZE videos per playlist per run."
+            yt_dlp_cmd+=(--max-downloads "$PLAYLIST_BATCH_SIZE")
         fi
         
         yt_dlp_cmd+=("$url")

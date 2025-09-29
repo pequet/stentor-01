@@ -328,11 +328,27 @@ process_content_sources() {
             fi
             download_cmd_args+=("$url")
 
-            if "$DOWNLOAD_SCRIPT" "${download_cmd_args[@]}"; then
+            # Capture both stdout and stderr from download script
+            local download_output
+            local download_exit_code
+            download_output=$("$DOWNLOAD_SCRIPT" "${download_cmd_args[@]}" 2>&1)
+            download_exit_code=$?
+            
+            if [ $download_exit_code -eq 0 ]; then
                 print_info "Successfully queued: $url"
+                # Log any output from successful download for debugging
+                if [[ -n "$download_output" ]]; then
+                    print_debug "Download script output: $download_output"
+                fi
                 ((processed++))
             else
-                print_error "Failed to download: $url"
+                print_error "Failed to download: $url (exit code: $download_exit_code)"
+                # Log the detailed error output
+                if [[ -n "$download_output" ]]; then
+                    print_error "Download script error details: $download_output"
+                else
+                    print_error "Download script produced no output"
+                fi
                 ((failed++))
             fi
         else
