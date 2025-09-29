@@ -27,10 +27,17 @@ ENV/
 VENV/
 
 # IDE specific (including symlinks)
-.cursor
-.vscode
-.cursor/
-.vscode/
+# Should be commented out i.e. included in the boilerplate but **usually not** in the project
+.cursor  
+.github  
+.claude  
+.cursor/  
+.github/  
+.claude/  
+# .vscode/
+
+# Caude
+CLAUDE.md
 
 # Build artifacts
 dist/
