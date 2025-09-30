@@ -319,7 +319,8 @@ process_content_sources() {
             continue
         fi
         
-        print_info "Processing: $url${comment:+ ($comment)}"
+    print_info "Processing: $url${comment:+ ($comment)}"
+    sleep 10
         
         if [[ -x "$DOWNLOAD_SCRIPT" ]]; then
             local download_cmd_args=()

@@ -623,6 +623,7 @@ main() {
             --download-archive "$REMOTE_DOWNLOAD_ARCHIVE_FILE" \
             -o "$CURRENT_URL_TEMP_DIR/%(title)s [%(id)s].%(ext)s" \
             --restrict-filenames \
+            --extractor-args "youtube:player_client=android" \
             --progress \
             -i \
             --no-warnings \
@@ -676,13 +677,20 @@ main() {
             # Using process substitution for tee's output to avoid subshell for yt_dlp_output variable
             # However, a simple pipe is more common and PIPESTATUS handles it well in bash
 
+            set +e
             "${yt_dlp_cmd[@]}" 2>&1 | tee "$temp_output_file"
             yt_dlp_exit_code=${PIPESTATUS[0]} # Get exit code of yt-dlp (left side of pipe)
+            set -e
             
             yt_dlp_output=$(cat "$temp_output_file")
             rm "$temp_output_file"
         fi
         
+        if [ $yt_dlp_exit_code -eq 101 ] && printf '%s' "$yt_dlp_output" | grep -q "Maximum number of downloads reached"; then
+            print_info "yt-dlp reached the --max-downloads limit for URL: $url; treating exit code 101 as success."
+            yt_dlp_exit_code=0
+        fi
+
         # New, more intelligent exit code and output analysis
         if [ $yt_dlp_exit_code -eq 0 ]; then
             print_info "yt-dlp completed successfully for URL: $url (local download to $CURRENT_URL_TEMP_DIR)"

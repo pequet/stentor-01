@@ -3,7 +3,7 @@
 > [!NOTE]
 > This document originates from a boilerplate template which may have evolved since this project was created. The latest version can be found in the [cursor-project-boilerplate repository](https://github.com/pequet/cursor-project-boilerplate/blob/main/docs/000-Framework-Context.md).
 
-This public repository, while fully functional on its own, is designed to serve as a **submodule** within a larger, homegrown and highly opinionated private framework for integrated thinking. This document is thus a "convex mirror" looking out from the repository into the framework that gives it context.
+This public repository, while fully functional on its own, is designed to serve as a **submodule** within a larger, homegrown and highly opinionated private framework for integrated thinking. This document embodies the **Holographic Principle**: each System Archetype contains the essential pattern of the whole framework at its appropriate scale. Here it serves as a "Convex Mirror" looking out from the repository into the framework that gives it context.
 
 For a standalone user, this information is optional. For the developer concerned with the recursivesystem-level context, it is crucial.
 
