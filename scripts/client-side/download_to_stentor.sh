@@ -695,13 +695,16 @@ main() {
         if [ $yt_dlp_exit_code -eq 0 ]; then
             print_info "yt-dlp completed successfully for URL: $url (local download to $CURRENT_URL_TEMP_DIR)"
 
-            # Check if there are any files to transfer (excluding .part and .ytdl)
-            # We use find to list files, then grep to filter out those we'd exclude, then wc -l to count.
-            # This is more robust than ls if filenames have spaces or special characters.
-            files_to_transfer_count=$(find "$CURRENT_URL_TEMP_DIR" -type f ! -name '*.part' ! -name '*.ytdl' -print 2>/dev/null | wc -l)
-            
+            # Capture the list of files to transfer (excluding .part and .ytdl)
+            mapfile -t files_to_transfer_list < <(cd "$CURRENT_URL_TEMP_DIR" && LC_ALL=C find . -type f ! -name '*.part' ! -name '*.ytdl' -print | LC_ALL=C sort)
+            files_to_transfer_count=${#files_to_transfer_list[@]}
+
             if [ "$files_to_transfer_count" -gt 0 ]; then
                 print_info "Found $files_to_transfer_count file(s) in '$CURRENT_URL_TEMP_DIR' to transfer to '$REMOTE_INBOX_DIR'..."
+                for relative_path in "${files_to_transfer_list[@]}"; do
+                    sanitized_path="${relative_path#./}"
+                    print_info "    $sanitized_path"
+                done
                 # Exclude .part and .ytdl files from being transferred.
                 rsync -av --remove-source-files --exclude='*.part' --exclude='*.ytdl' "${CURRENT_URL_TEMP_DIR}/" "${REMOTE_INBOX_DIR}/"
                 rsync_exit_code=$?
