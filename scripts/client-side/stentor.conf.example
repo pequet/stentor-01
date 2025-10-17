@@ -19,6 +19,13 @@ STENTOR_REMOTE_AUDIO_INBOX_DIR="~/stentor_inbox"
 # Example: "$HOME/stentor_mount" or "/mnt/stentor_audio"
 LOCAL_MOUNT_POINT="$HOME/stentor_droplet_mount"
 
+# Local directory for storing retrieved transcripts from the droplet.
+# This directory will be created automatically if it doesn't exist.
+# Completed transcripts will be copied here while preserving originals on the server.
+# The retrieve_transcripts.sh script uses this location to store downloaded transcripts.
+# Example: "$HOME/.stentor/transcripts" or "$HOME/Documents/stentor-transcripts"
+LOCAL_TRANSCRIPT_DIR="$HOME/.stentor/transcripts"
+
 # Local name for the mounted volume in Finder (macOS) or similar file managers.
 # If not set, a default name will be used.
 # Example: "Stentor Inbox"

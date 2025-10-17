@@ -12,13 +12,16 @@ The project's design is guided by two core ideas: the principle of **Augmenting 
 
 ## How It Works: The Flow of Knowledge
 
-Stentor's workflow is designed for robust, set-and-forget automation. This system is composed of two primary components: a **client-side harvester** that runs on your local machine (or a remote server) and a **server-side processor** that runs on the remote Stentor droplet.
+Stentor's workflow is designed for robust, set-and-forget automation with **bidirectional sync**. This system is composed of two primary components: a **client-side harvester** that runs on your local machine (or a remote server) and a **server-side processor** that runs on the remote Stentor droplet.
 
-1.  **Harvest (Client):** A script on your local machine (`periodic_harvester.sh`) scans a list of your favorite YouTube channels, playlists, or podcast feeds for new content.
-2.  **Download (Client):** New episodes are downloaded as audio and securely transferred to your remote Stentor server.
-3.  **Process (Server):** The server-side scripts process each file in a queue, segmenting the audio for efficiency.
-4.  **Transcribe (Server):** The powerful `whisper.cpp` engine performs highly accurate transcription on the server.
-5.  **Analyze (Client/Server):** With a complete transcript available, you can use **Vibe Tools** to perform any AI task you can imagine.
+1.  **Retrieve (Client):** The periodic harvester first retrieves completed transcripts from the server to your local machine, ensuring you always have the latest processed content.
+2.  **Harvest (Client):** A script on your local machine (`periodic_harvester.sh`) scans a list of your favorite YouTube channels, playlists, or podcast feeds for new content.
+3.  **Download (Client):** New episodes are downloaded as audio and securely transferred to your remote Stentor server.
+4.  **Process (Server):** The server-side scripts process each file in a queue, segmenting the audio for efficiency.
+5.  **Transcribe (Server):** The powerful `whisper.cpp` engine performs highly accurate transcription on the server.
+6.  **Analyze (Client/Server):** With a complete transcript available, you can use **Vibe Tools** to perform any AI task you can imagine.
+
+The system grows autonomously through this bidirectional workflow—pulling completed transcripts while pushing new content for processing, all within a single mount session for optimal efficiency.
 
 ## Key Features
 
@@ -133,11 +136,23 @@ Run these from your local machine to manage the remote filesystem and fetch new 
 > -   **First Step**: This should be the first command you run after cloning the repository on your client machine. It will check for dependencies, create the necessary configuration files, and make the other client-side scripts executable.
 > **Run Content Harvester**
 > ```bash
-> # Scan sources, download new content, and transfer to the droplet
-> ./scripts/client-side/periodic_harvester.sh
+> # Bidirectional sync: retrieves transcripts, then downloads new content
+> ./scripts/client-side/periodic_harvester.sh ~/.stentor/content_sources.txt
 > ```
 >
 > -   **Configuration**: This script reads a list of YouTube or podcast URLs from `~/.stentor/content_sources.txt`, one URL per line.
+> -   **Bidirectional**: Automatically retrieves completed transcripts before harvesting new content.
+
+> **Retrieve Completed Transcripts**
+> ```bash
+> # Manually retrieve transcripts from server to local machine
+> ./scripts/client-side/retrieve_transcripts.sh
+> ```
+>
+> -   **Purpose**: Fetches completed transcripts from the droplet to your local machine.
+> -   **Automatic**: The periodic harvester calls this automatically, but you can run it manually anytime.
+> -   **Archive**: Uses retrieval_archive.txt to prevent re-downloading files.
+> -   **Destination**: Transcripts are saved to `~/.stentor/transcripts/completed/` by default (configurable in stentor.conf).
 
 > **Mount/Unmount Droplet**
 > ```bash

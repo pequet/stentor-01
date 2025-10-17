@@ -696,15 +696,16 @@ main() {
             print_info "yt-dlp completed successfully for URL: $url (local download to $CURRENT_URL_TEMP_DIR)"
 
             # Capture the list of files to transfer (excluding .part and .ytdl)
-            mapfile -t files_to_transfer_list < <(cd "$CURRENT_URL_TEMP_DIR" && LC_ALL=C find . -type f ! -name '*.part' ! -name '*.ytdl' -print | LC_ALL=C sort)
-            files_to_transfer_count=${#files_to_transfer_list[@]}
+            # Using POSIX-compatible approach (works with Bash 3.2 and zsh)
+            files_to_transfer_count=$(cd "$CURRENT_URL_TEMP_DIR" && LC_ALL=C find . -type f ! -name '*.part' ! -name '*.ytdl' -print | wc -l | tr -d ' ')
 
             if [ "$files_to_transfer_count" -gt 0 ]; then
                 print_info "Found $files_to_transfer_count file(s) in '$CURRENT_URL_TEMP_DIR' to transfer to '$REMOTE_INBOX_DIR'..."
-                for relative_path in "${files_to_transfer_list[@]}"; do
+                # List files for user visibility
+                (cd "$CURRENT_URL_TEMP_DIR" && LC_ALL=C find . -type f ! -name '*.part' ! -name '*.ytdl' -print | LC_ALL=C sort | while IFS= read -r relative_path; do
                     sanitized_path="${relative_path#./}"
                     print_info "    $sanitized_path"
-                done
+                done)
                 # Exclude .part and .ytdl files from being transferred.
                 rsync -av --remove-source-files --exclude='*.part' --exclude='*.ytdl' "${CURRENT_URL_TEMP_DIR}/" "${REMOTE_INBOX_DIR}/"
                 rsync_exit_code=$?

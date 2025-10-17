@@ -9,18 +9,20 @@ set -u
 set -o pipefail
 
 # ██ ██   Stentor: Harvest YouTube Videos to Stentor
-# █ ███   Version: 1.1.0
+# █ ███   Version: 1.2.0
 # ██ ██   Author: Benjamin Pequet
 # █ ███   GitHub: https://github.com/pequet/stentor-01/
 #
 # Purpose:
-#   Periodically harvests content from a list of URLs (defined in
-#   a user-provided file) and queues them for processing using
-#   the download_to_stentor.sh script.
+#   Implements bidirectional sync between client and server: retrieves completed
+#   transcripts from the server, then harvests new content from a list of URLs
+#   and queues them for processing using the download_to_stentor.sh script.
 #
 # Features:
+#   - Bidirectional sync: Pulls completed transcripts before pushing new content.
 #   - Reads URLs from a source file provided as an argument.
 #   - Supports comments in the source file (lines starting with # or text after |).
+#   - Calls retrieve_transcripts.sh to fetch completed transcripts from server.
 #   - Calls download_to_stentor.sh for each valid URL.
 #   - Ensures only one instance runs at a time using a lock file.
 #   - Logs activity to ~/.stentor/logs/periodic_harvester.log.
@@ -37,6 +39,7 @@ set -o pipefail
 #   CONTENT_SOURCES_FILE="$HOME/.stentor/daily_youtube_channels.txt"
 #
 # Dependencies:
+#   - retrieve_transcripts.sh: Script used to retrieve completed transcripts from server.
 #   - download_to_stentor.sh: Script used to download and queue content.
 #   - Standard Unix utilities: date, cat, stat, kill, rm, mkdir, xargs, tee.
 #
@@ -48,6 +51,7 @@ set -o pipefail
 #     # This is a comment line and will be ignored
 #
 # Changelog:
+#   1.2.0 - 2025-10-16 - Added completed transcript retrieval step
 #   1.1.0 - 2025-07-29 - Added logging and messaging utilities.
 #   1.0.0 - 2025-05-25 - Initial release with URL harvesting and download script integration.
 #
@@ -86,6 +90,7 @@ HARVESTER_PERFORMED_MOUNT=false # To track if this script mounted
 
 MOUNT_SCRIPT="$SCRIPT_DIR/mount_droplet_yt.sh" # Assumes it's in the same dir
 UNMOUNT_SCRIPT="$SCRIPT_DIR/unmount_droplet_yt.sh" # Assumes it's in the same dir
+RETRIEVE_SCRIPT="$SCRIPT_DIR/retrieve_transcripts.sh" # Assumes it's in the same dir
 
 # * Lock Management
 
@@ -363,6 +368,42 @@ process_content_sources() {
     return 0 # Indicate success
 }
 
+# * Transcript Retrieval
+retrieve_completed_transcripts() {
+    print_step "Retrieving completed transcripts from server"
+
+    if [[ ! -x "$RETRIEVE_SCRIPT" ]]; then
+        print_warning "Retrieve script not found or not executable: $RETRIEVE_SCRIPT"
+        print_info "Skipping transcript retrieval and continuing with harvest..."
+        return 0 # Not a fatal error - continue with harvest
+    fi
+
+    # Call retrieve_transcripts.sh
+    # Note: retrieve_transcripts.sh manages its own mount verification and doesn't unmount if already mounted
+    local retrieve_output
+    local retrieve_exit_code
+
+    retrieve_output=$("$RETRIEVE_SCRIPT" 2>&1)
+    retrieve_exit_code=$?
+
+    if [ $retrieve_exit_code -eq 0 ]; then
+        print_info "Successfully retrieved completed transcripts"
+        # Log any output from successful retrieval for debugging
+        if [[ -n "$retrieve_output" ]]; then
+            print_debug "Retrieve script output: $retrieve_output"
+        fi
+    else
+        print_warning "Transcript retrieval failed (exit code: $retrieve_exit_code)"
+        print_info "Continuing with harvest despite retrieval failure..."
+        # Log the detailed error output
+        if [[ -n "$retrieve_output" ]]; then
+            print_debug "Retrieve script error details: $retrieve_output"
+        fi
+    fi
+
+    return 0 # Always return success so harvest can continue
+}
+
 # * Setup
 setup_directories() {
     # This function now ensures the log directory from the sourced utility exists.
@@ -416,6 +457,9 @@ main() {
     # If LOCAL_MOUNT_POINT is not set, this function will do nothing.
     # If mount fails, it logs but doesn't exit, allowing download_to_stentor to try.
     ensure_mount_point_ready
+
+    # Retrieve completed transcripts from server (bidirectional sync - pull before push)
+    retrieve_completed_transcripts
 
     # Check if download script exists
     if [[ ! -f "$DOWNLOAD_SCRIPT" ]]; then
